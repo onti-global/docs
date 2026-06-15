@@ -1,0 +1,114 @@
+---
+title: "Schema conventions"
+sidebarTitle: "Conventions"
+description: "Conventions for our Postgres schema on Supabase."
+---
+
+## Platform
+
+- **Database**: Postgres, hosted on [Supabase](https://supabase.com).
+- **Projects**: Two Supabase projects with identical schemas:
+  - `staging` — used for development, QA, and integration testing.
+  - `production` — used for live traffic only.
+- Schema changes must be applied to **staging first**, validated, and then promoted to production via the same migration. The two projects must never drift.
+
+### Supabase services we use
+
+We use Supabase strictly as a **database \+ auth provider**. Application logic lives in our own backend services.
+
+- ✅ **Postgres database** — schemas, RLS, functions, triggers.
+- ✅ **Supabase Auth** — the single source of truth for user identity.
+- ❌ **Supabase Edge Functions** — do not use. All server-side logic belongs in our existing backend, not in Edge Functions.
+- ❌ Supabase Storage, Realtime, and other add-on services are out of scope unless explicitly approved.
+
+## Auth and users
+
+- **Supabase Auth is the only auth system.** Do not roll a custom users/passwords table or a parallel identity store.
+- Authenticated users live in the managed `auth.users` table — never write to it directly from application code.
+- Application-level profile data lives in a separate `public.user_details` table, keyed by the `auth.users.id`:
+  - `user_id uuid primary key references auth.users(id) on delete cascade`
+  - All additional fields (display name, avatar, preferences, role, etc.) go here.
+  - RLS policies on `user_details` should be written against `auth.uid()`.
+- A row in `user_details` should be created on signup (via a trigger on `auth.users` or from the backend immediately after signup) so the two stay 1:1.
+
+<Note>
+  All SQL on this page is **illustrative only**. This is a conventions document, not a migration source. Real DDL lives in version-controlled migrations.
+</Note>
+
+**Example:**
+
+```sql
+create table user_details (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table user_details enable row level security;
+
+create policy "users can read their own details"
+  on user_details for select
+  using (auth.uid() = user_id);
+
+create policy "users can update their own details"
+  on user_details for update
+  using (auth.uid() = user_id);
+```
+
+## Row Level Security
+
+- **RLS is always enabled** on every table — no exceptions, including lookup and join tables.
+- Every table must ship with explicit policies for the roles that need access (`anon`, `authenticated`, `service_role`). A table with RLS on and no policies is effectively unreadable, which is intentional until policies are written.
+- Service-role access should be reserved for trusted server-side code. Never expose the service-role key to clients.
+- Write policies as narrowly as possible (`select`, `insert`, `update`, `delete` each get their own policy when behavior differs).
+
+## Naming
+
+- Use **`snake_case`** for all identifiers: tables, columns, indexes, constraints, functions, and types.
+- Table names are **plural nouns** (`users`, `organizations`, `audit_logs`).
+- Join tables combine both sides, alphabetized (`organization_users`, not `users_organizations`).
+- **All IDs must be `uuid`** — primary keys, foreign keys, and any other identifier columns. Never use serial/bigserial integer IDs. Generate with `gen_random_uuid()` as the column default.
+- Primary keys are `id`. Foreign keys are `<singular_table>_id` (e.g. `organization_id`).
+- Timestamps use `_at` suffix (`created_at`, `updated_at`, `deleted_at`).
+- Booleans use `is_` or `has_` prefix (`is_active`, `has_verified_email`).
+- **No abbreviations.** Spell identifiers out in full so meaning is unambiguous to anyone reading the schema. For example: use `date_of_birth` instead of `dob`, `description` instead of `desc`, `address` instead of `addr`, `organization` instead of `org`. Widely understood acronyms (`url`, `id`, `uuid`) are fine.
+
+## Enums
+
+- **Always use Postgres enums** (or foreign keys to a reference table) instead of free-form strings. Never branch logic on string comparisons in the database or application.
+- Enum type names are singular and `snake_case` (`user_role`, `subscription_status`, `payment_method`).
+- Enum values are lowercase `snake_case` (`active`, `past_due`, `pending_review`).
+- Adding a new value: `ALTER TYPE ... ADD VALUE`. Removing or renaming values requires a migration that creates a new type and swaps it — plan accordingly.
+
+**Example:**
+
+```sql
+create type subscription_status as enum ('active', 'trialing', 'past_due', 'canceled');
+
+create table subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id) on delete cascade,
+  status subscription_status not null default 'trialing',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table subscriptions enable row level security;
+```
+
+## Schema files
+
+- Versioned schema definitions live in the **`/schemas`** folder of the repo. This folder is the canonical reference for the current shape of the database.
+- Each definition file must:
+  - Include **comments explaining usage** — what the table/type is for, who reads and writes it, and any non-obvious constraints or invariants.
+  - Follow a **clear, predictable structure**: enums first, then tables grouped by domain, then indexes, then RLS policies, then triggers/functions.
+  - Use consistent ordering within a table: `id` first, foreign keys next, domain columns, then `created_at` / `updated_at` last.
+- Treat schema files as documentation as much as code — a new engineer should be able to read a file top-to-bottom and understand the domain.
+
+## Migrations
+
+- All schema changes go through version-controlled migrations — no ad-hoc changes in the Supabase dashboard.
+- Apply to `staging` first, verify, then apply the **same** migration to `production`.
+- Migrations should be idempotent where possible and always reversible in a follow-up if needed.

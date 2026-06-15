@@ -150,6 +150,35 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "Database",
+        "icon": "database",
+        "pages": [
+          "conventions-md",
+          {
+            "group": "Schemas",
+            "pages": [
+              "current"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "api",
+        "versions": [
+          {
+            "version": "v1",
+            "dropdowns": [
+              {
+                "dropdown": "user",
+                "pages": [
+                  "products"
+                ]
+              }
+            ]
+          }
+        ]
       }
     ]
   },
