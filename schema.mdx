@@ -1,0 +1,536 @@
+---
+title: "schema.sql"
+---
+
+```sql
+-- =============================================================================
+-- current.sql
+-- -----------------------------------------------------------------------------
+-- Canonical, human-readable definition of the current database schema.
+-- See conventions for rules: Postgres on Supabase, RLS always on, snake_case,
+-- UUID ids, enums over strings, Supabase Auth as the only identity source.
+--
+-- Structure:
+--   1. Enums
+--   2. Tables
+--        - user_details
+--        - courses
+--        - course_enrollments
+--        - course_onboardings
+--        - agents
+--        - agent_memories
+--        - onti_packages
+--        - user_products
+--   3. Indexes
+--   4. Row Level Security policies
+--   5. Trigger functions and triggers (updated_at automation)
+-- =============================================================================
+
+
+-- =============================================================================
+-- 1. Enums
+-- =============================================================================
+
+-- Lifecycle state of a course. Drives what is visible to learners vs. authors.
+--   draft     - being authored, not visible to learners
+--   published - live and enrollable
+--   archived  - hidden from catalog, existing enrollments remain valid
+create type course_status as enum ('draft', 'published', 'archived');
+
+-- Progress state of a single user's enrollment in a course.
+--   active    - learner is currently working through the course
+--   completed - learner has finished all required content
+--   dropped   - learner has voluntarily left the course
+create type enrollment_status as enum ('active', 'completed', 'dropped');
+
+-- Lifecycle state of an agent memory record.
+--   active   - memory is current and should be surfaced to the agent via MCP
+--   stale    - memory is preserved but should not be used (e.g. user paused
+--              the agent or memory is out of date and pending refresh)
+--   archived - memory is retained for audit but excluded from MCP queries
+create type agent_memory_status as enum ('active', 'stale', 'archived');
+
+-- Lifecycle state of an Onti package subscription tier.
+--   draft     - being authored, not purchasable
+--   active    - available for purchase / assignment
+--   retired   - hidden from new purchases, existing entitlements remain valid
+create type onti_package_status as enum ('draft', 'active', 'retired');
+
+-- Type of product a user_products row grants access to. Exactly one of the
+-- product foreign key columns must be populated to match this kind.
+create type product_kind as enum ('course', 'agent', 'onti_package');
+
+-- Lifecycle of a user's access to a product.
+--   active    - access is live
+--   expired   - time-bounded access has lapsed
+--   revoked   - access was explicitly removed (refund, abuse, etc.)
+create type user_product_status as enum ('active', 'expired', 'revoked');
+
+
+-- =============================================================================
+-- 2. Tables
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- user_details
+-- -----------------------------------------------------------------------------
+-- Application-level profile data for an authenticated user.
+--
+-- Identity is owned by Supabase Auth (auth.users). We do NOT introduce a
+-- separate surrogate id here — the primary key IS auth.users.id. This keeps
+-- the relationship strictly 1:1 and avoids the confusion of two competing
+-- user identifiers across the codebase.
+--
+-- A row should be created at signup (via trigger on auth.users or from the
+-- backend immediately after signup) so user_details stays in lockstep with
+-- auth.users.
+-- -----------------------------------------------------------------------------
+create table user_details (
+  user_id          uuid primary key references auth.users(id) on delete cascade,
+  display_name     text,
+  avatar_url       text,
+  date_of_birth    date,
+  tags             text[] not null default '{}',
+  last_active_at   timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+alter table user_details enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- courses
+-- -----------------------------------------------------------------------------
+-- A Course is the core product offering. Users enroll in courses to consume
+-- their content. Courses move through a lifecycle (draft → published →
+-- archived) tracked by the course_status enum.
+--
+-- Read access: published courses are readable by any authenticated user.
+-- Write access: managed by the backend via service_role (no direct learner
+-- writes).
+-- -----------------------------------------------------------------------------
+create table courses (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  description text,
+  status      course_status not null default 'draft',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table courses enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- course_enrollments
+-- -----------------------------------------------------------------------------
+-- Join table linking a user (auth.users.id) to a course they have enrolled
+-- in. One row per (user, course) pair — the unique constraint prevents
+-- duplicate enrollments.
+--
+-- enrolled_at  - when the user joined the course
+-- completed_at - set when status transitions to 'completed'
+--
+-- Read access: a user can read only their own enrollments.
+-- Write access: managed by the backend; learners cannot directly mutate
+-- enrollment status (e.g. mark themselves complete) without going through
+-- application logic.
+-- -----------------------------------------------------------------------------
+create table course_enrollments (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  course_id    uuid not null references courses(id) on delete cascade,
+  status       enrollment_status not null default 'active',
+  enrolled_at  timestamptz not null default now(),
+  completed_at timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (user_id, course_id)
+);
+
+alter table course_enrollments enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- course_onboardings
+-- -----------------------------------------------------------------------------
+-- Per-course onboarding submission from a learner. Each course can ship its
+-- own onboarding questionnaire (intake form, preferences, prior knowledge,
+-- etc.), and learners answer it when they enroll.
+--
+-- onboarding_version - integer version of the onboarding form the answers
+--                      correspond to. Increment this in the application
+--                      whenever the questionnaire shape changes so older
+--                      submissions remain interpretable.
+-- answers            - JSONB blob containing the learner's responses. The
+--                      shape is owned by the application layer; do NOT
+--                      branch SQL on its internal keys.
+--
+-- One submission per (user, course) pair. If the questionnaire is updated
+-- and the learner re-submits, the row is updated in place and
+-- onboarding_version is bumped accordingly.
+-- -----------------------------------------------------------------------------
+create table course_onboardings (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  course_id          uuid not null references courses(id) on delete cascade,
+  onboarding_version integer not null,
+  answers            jsonb not null default '{}'::jsonb,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now(),
+  unique (user_id, course_id)
+);
+
+alter table course_onboardings enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- agents
+-- -----------------------------------------------------------------------------
+-- An Agent is our abstraction of an AI coach that users can interact with.
+-- Each agent record points at a concrete underlying model hosted by a
+-- provider (OpenAI, Anthropic, etc.). Access to a specific agent by a user
+-- is gated by application logic (entitlements, plan, course enrollment,
+-- etc.) and not modeled directly on this table.
+--
+-- provider   - the upstream model host (e.g. 'openai', 'anthropic').
+-- model      - the model identifier as known to the provider
+--              (e.g. 'gpt-4o', 'claude-sonnet-4-5'). Stored as text to
+--              avoid coupling our schema to any one provider's catalog.
+-- provider_agent_id - the id this agent is known by at the provider, if the
+--              provider exposes long-lived agent/assistant objects.
+--              Optional — null for stateless model-only agents.
+-- -----------------------------------------------------------------------------
+create table agents (
+  id                uuid primary key default gen_random_uuid(),
+  name              text not null,
+  description       text,
+  provider          text not null,
+  model             text not null,
+  provider_agent_id text,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+alter table agents enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- agent_memories
+-- -----------------------------------------------------------------------------
+-- Per-(user, agent) memory record. Stores long-lived conversational context
+-- that an MCP server will later read so the agent can recall prior
+-- interactions across sessions.
+--
+-- One row per (user, agent) pair — the unique constraint enforces that
+-- memory is consolidated per relationship rather than appended per
+-- conversation. Conversation-level history lives elsewhere; this table is
+-- the rolling, summarized memory.
+--
+-- memory            - free-form natural-language summary the agent reads.
+-- data              - JSONB structured memory (facts, preferences, goals,
+--                     etc.). Shape is owned by the application; do NOT
+--                     branch SQL on its internal keys.
+-- last_updated_at   - when the memory was last meaningfully refreshed.
+--                     Distinct from updated_at, which bumps on any row
+--                     change (status flips, metadata edits, etc.).
+-- status            - lifecycle of this memory (see agent_memory_status).
+-- -----------------------------------------------------------------------------
+create table agent_memories (
+  id              uuid primary key default gen_random_uuid(),
+  user_id         uuid not null references auth.users(id) on delete cascade,
+  agent_id        uuid not null references agents(id) on delete cascade,
+  memory          text not null default '',
+  data            jsonb not null default '{}'::jsonb,
+  status          agent_memory_status not null default 'active',
+  last_updated_at timestamptz not null default now(),
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  unique (user_id, agent_id)
+);
+
+alter table agent_memories enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- onti_packages
+-- -----------------------------------------------------------------------------
+-- An Onti package is a monthly subscription tier that grants special access
+-- beyond any single course or agent (bundles, premium features, priority
+-- support, etc.). Packages are themselves a product type that can be
+-- granted to a user via user_products.
+--
+-- The exact entitlements a package confers are resolved by the backend at
+-- access-check time; this table just identifies the tier itself.
+-- -----------------------------------------------------------------------------
+create table onti_packages (
+  id                  uuid primary key default gen_random_uuid(),
+  name                text not null,
+  description         text,
+  monthly_price_cents integer not null,
+  currency            text not null default 'USD',
+  status              onti_package_status not null default 'draft',
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
+alter table onti_packages enable row level security;
+
+
+-- -----------------------------------------------------------------------------
+-- user_products
+-- -----------------------------------------------------------------------------
+-- The single source of truth for "what does this user have access to?".
+-- A dedicated access service reads from this table to gate every product
+-- in the system.
+--
+-- Each row links one user to exactly ONE product. The product is one of:
+--   - a course        (course_id    is set, others null)
+--   - an agent        (agent_id     is set, others null)
+--   - an onti_package (package_id   is set, others null)
+--
+-- This is enforced by the check constraint below: exactly one product
+-- foreign key must be non-null, and it must match the product_kind enum
+-- column. Mixing product types on a single row would make access checks
+-- ambiguous, so we explicitly forbid it.
+--
+-- One row per (user, product) pair. To grant a user multiple products,
+-- insert multiple rows. To remove access, set status to 'revoked' or
+-- 'expired' rather than deleting, so we retain history.
+--
+-- expires_at - optional end of access window. Null means no expiration
+--              (typical for one-time course purchases). Subscription-style
+--              access (e.g. onti_packages) sets this to the end of the
+--              current billing period.
+-- -----------------------------------------------------------------------------
+create table user_products (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  product_kind product_kind not null,
+  course_id    uuid references courses(id) on delete cascade,
+  agent_id     uuid references agents(id) on delete cascade,
+  package_id   uuid references onti_packages(id) on delete cascade,
+  status       user_product_status not null default 'active',
+  granted_at   timestamptz not null default now(),
+  expires_at   timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  -- Exactly one product reference must be set, and it must match product_kind.
+  constraint user_products_exactly_one_product check (
+    (product_kind = 'course'       and course_id  is not null and agent_id is null     and package_id is null) or
+    (product_kind = 'agent'        and agent_id   is not null and course_id is null    and package_id is null) or
+    (product_kind = 'onti_package' and package_id is not null and course_id is null    and agent_id is null)
+  ),
+
+  -- One row per (user, product) pair, per product type.
+  constraint user_products_unique_course  unique (user_id, course_id),
+  constraint user_products_unique_agent   unique (user_id, agent_id),
+  constraint user_products_unique_package unique (user_id, package_id)
+);
+
+alter table user_products enable row level security;
+
+
+-- =============================================================================
+-- 3. Indexes
+-- =============================================================================
+
+-- Lookup courses by lifecycle state (e.g. listing the public catalog).
+create index courses_status_idx on courses (status);
+
+-- Fast "what is this user enrolled in?" queries.
+create index course_enrollments_user_id_idx on course_enrollments (user_id);
+
+-- Fast "who is enrolled in this course?" queries.
+create index course_enrollments_course_id_idx on course_enrollments (course_id);
+
+-- Fast lookup of a learner's onboarding submissions.
+create index course_onboardings_user_id_idx on course_onboardings (user_id);
+
+-- Fast lookup of all submissions for a given course.
+create index course_onboardings_course_id_idx on course_onboardings (course_id);
+
+-- Fast lookup of a user's agent memories (MCP read path).
+create index agent_memories_user_id_idx on agent_memories (user_id);
+
+-- Fast lookup of all memories for a given agent.
+create index agent_memories_agent_id_idx on agent_memories (agent_id);
+
+-- Filter active memories quickly (MCP typically only wants 'active').
+create index agent_memories_status_idx on agent_memories (status);
+
+-- Hot path for the access service: "what does this user have?"
+create index user_products_user_id_idx on user_products (user_id);
+
+-- Reverse lookups: "who has this product?"
+create index user_products_course_id_idx  on user_products (course_id)  where course_id  is not null;
+create index user_products_agent_id_idx   on user_products (agent_id)   where agent_id   is not null;
+create index user_products_package_id_idx on user_products (package_id) where package_id is not null;
+
+-- Filter by product kind and status for entitlement queries.
+create index user_products_kind_status_idx on user_products (product_kind, status);
+
+-- Catalog listing of active packages.
+create index onti_packages_status_idx on onti_packages (status);
+
+
+-- =============================================================================
+-- 4. Row Level Security policies
+-- =============================================================================
+
+-- ----- user_details ----------------------------------------------------------
+-- A user can read and update only their own profile row.
+
+create policy "user_details: self read"
+  on user_details for select
+  using (auth.uid() = user_id);
+
+create policy "user_details: self update"
+  on user_details for update
+  using (auth.uid() = user_id);
+
+
+-- ----- courses ---------------------------------------------------------------
+-- Any authenticated user can read published courses. Drafts and archived
+-- courses are hidden from learners and managed via the backend.
+
+create policy "courses: read published"
+  on courses for select
+  to authenticated
+  using (status = 'published');
+
+
+-- ----- course_enrollments ----------------------------------------------------
+-- A learner can only see their own enrollments. Inserts and updates flow
+-- through the backend (service_role), which bypasses RLS.
+
+create policy "course_enrollments: self read"
+  on course_enrollments for select
+  using (auth.uid() = user_id);
+
+
+-- ----- course_onboardings ----------------------------------------------------
+-- A learner can read and submit/update their own onboarding answers.
+-- Backend (service_role) handles cross-user reads (e.g. for instructors).
+
+create policy "course_onboardings: self read"
+  on course_onboardings for select
+  using (auth.uid() = user_id);
+
+create policy "course_onboardings: self insert"
+  on course_onboardings for insert
+  with check (auth.uid() = user_id);
+
+create policy "course_onboardings: self update"
+  on course_onboardings for update
+  using (auth.uid() = user_id);
+
+
+-- ----- agents ----------------------------------------------------------------
+-- The agent catalog is readable by any authenticated user. Per-user
+-- entitlement (which agents a given user can actually invoke) is enforced
+-- by the backend, not at the SQL layer.
+
+create policy "agents: read all"
+  on agents for select
+  to authenticated
+  using (true);
+
+
+-- ----- agent_memories --------------------------------------------------------
+-- A user can read their own memories. Writes flow through the backend /
+-- MCP server (service_role) so summarization and structure stay consistent.
+
+create policy "agent_memories: self read"
+  on agent_memories for select
+  using (auth.uid() = user_id);
+
+
+-- ----- onti_packages ---------------------------------------------------------
+-- Active packages are visible to any authenticated user for catalog display.
+-- Draft and retired packages are managed via the backend.
+
+create policy "onti_packages: read active"
+  on onti_packages for select
+  to authenticated
+  using (status = 'active');
+
+
+-- ----- user_products ---------------------------------------------------------
+-- A user can read their own entitlements (the access service uses
+-- service_role to read across users). Writes are backend-only — users
+-- cannot grant themselves access.
+
+create policy "user_products: self read"
+  on user_products for select
+  using (auth.uid() = user_id);
+
+
+-- =============================================================================
+-- 5. Trigger functions and triggers
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- set_timestamps()
+-- -----------------------------------------------------------------------------
+-- Shared trigger function used by every table that has created_at and
+-- updated_at columns.
+--
+-- On INSERT: forces created_at and updated_at to now(), so application code
+--            cannot accidentally (or intentionally) set them to stale values.
+-- On UPDATE: bumps updated_at to now() and preserves the original created_at.
+--
+-- This guarantees both timestamps are always server-authoritative.
+-- -----------------------------------------------------------------------------
+create or replace function set_timestamps()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.created_at = now();
+    new.updated_at = now();
+  elsif tg_op = 'UPDATE' then
+    new.created_at = old.created_at;
+    new.updated_at = now();
+  end if;
+  return new;
+end;
+$$;
+
+-- Attach the trigger to every table with created_at / updated_at columns.
+
+create trigger user_details_set_timestamps
+  before insert or update on user_details
+  for each row execute function set_timestamps();
+
+create trigger courses_set_timestamps
+  before insert or update on courses
+  for each row execute function set_timestamps();
+
+create trigger course_enrollments_set_timestamps
+  before insert or update on course_enrollments
+  for each row execute function set_timestamps();
+
+create trigger course_onboardings_set_timestamps
+  before insert or update on course_onboardings
+  for each row execute function set_timestamps();
+
+create trigger agents_set_timestamps
+  before insert or update on agents
+  for each row execute function set_timestamps();
+
+create trigger agent_memories_set_timestamps
+  before insert or update on agent_memories
+  for each row execute function set_timestamps();
+
+create trigger onti_packages_set_timestamps
+  before insert or update on onti_packages
+  for each row execute function set_timestamps();
+
+create trigger user_products_set_timestamps
+  before insert or update on user_products
+  for each row execute function set_timestamps();
+```

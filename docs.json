@@ -155,6 +155,7 @@
         "tab": "Database",
         "icon": "database",
         "pages": [
+          "conventions-md",
           {
             "group": "Schemas",
             "pages": [
@@ -172,7 +173,7 @@
               {
                 "dropdown": "user",
                 "pages": [
-                  "products"
+                  "api/v1/user/products"
                 ]
               }
             ]
@@ -182,8 +183,7 @@
       {
         "tab": "supabase",
         "pages": [
-          "conventions-md",
-          "db-sql"
+          "schema"
         ]
       }
     ]
