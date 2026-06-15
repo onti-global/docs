@@ -1,0 +1,118 @@
+---
+title: "products"
+api: "v1"
+endpoint: "/v1/user/product"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET User Products
+
+Provides the Apps with the product-level access a user has based on their purchases and subscription level. Backed by the `user_products` table — one row per (user, product) pair, where a product is exactly one of a course, an agent, or an onti package. The response splits entitlements into three separate arrays (`courses`, `agents`, `packages`) so the apps never have to branch on a discriminator or carry nullable foreign keys.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (JWT in the `Authorization: Bearer <token>` header).
+- The endpoint returns products for the authenticated user only. The user id is taken from the JWT (`auth.uid()`), never from a request parameter.
+
+## Query parameters
+
+|  |  | Name | Type | Required | Description |
+| --- | --- | --- | --- | --- | --- |
+| `status` | \`"active" | "expired" | "revoked"\` | No | Filter by entitlement status. Defaults to `"active"` so apps get only currently usable products. |
+
+## Response body
+
+`200 OK` — returns an object with three arrays, one per product kind. Each array contains the entitlement rows for that kind, hydrated with the referenced product. Kinds the user has no entitlements for return an empty array.
+
+```json
+{
+  "courses": [
+    {
+      "id": "b3f5...e1",
+      "status": "active",
+      "granted_at": "2026-04-12T10:14:22Z",
+      "expires_at": null,
+      "course": {
+        "id": "1aa2...d4",
+        "title": "Foundations of Coaching",
+        "status": "published"
+      }
+    }
+  ],
+  "agents": [
+    {
+      "id": "7d11...aa",
+      "status": "active",
+      "granted_at": "2026-05-01T08:00:00Z",
+      "expires_at": null,
+      "agent": {
+        "id": "55ef...c2",
+        "name": "Resilience Coach",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5"
+      }
+    }
+  ],
+  "packages": [
+    {
+      "id": "f201...3b",
+      "status": "active",
+      "granted_at": "2026-06-01T00:00:00Z",
+      "expires_at": "2026-07-01T00:00:00Z",
+      "package": {
+        "id": "a9c3...0f",
+        "name": "Onti Plus",
+        "monthly_price_cents": 1999,
+        "currency": "USD",
+        "status": "active"
+      }
+    }
+  ]
+}
+```
+
+### Row fields
+
+Every entitlement row (in any of the three arrays) shares the same envelope:
+
+| Field | Type | Description |  |  |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | Entitlement row id (`user_products.id`). |  |  |
+| `status` | \`"active" | "expired" | "revoked"\` | Current entitlement state (`user_products.status`). |
+| `granted_at` | `timestamptz` | When access was granted. |  |  |
+| `expires_at` | \`timestamptz | null\` | End of access window. `null` means no expiration (typical for one-time course purchases). |  |
+
+The hydrated product object differs per array:
+
+| Array | Product field | Source table |
+| --- | --- | --- |
+| `courses` | `course` | `courses` |
+| `agents` | `agent` | `agents` |
+| `packages` | `package` | `onti_packages` |
+
+Because each entitlement lives in exactly one array, there is no `product_kind` discriminator and no nullable `course_id` / `agent_id` / `package_id` columns in the response.
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_query_param` | Unknown `product_kind`, `status`, or `include` value. |
+| `500` | `internal_error` | Unexpected failure reading from the database. |
+
+```json
+{
+  "error": {
+    "code": "invalid_query_param",
+    "message": "product_kind must be one of: course, agent, onti_package"
+  }
+}
+```
+
+## Notes
+
+- The endpoint reflects entitlements only. It does not return progress, conversation history, or any per-product state — those belong to the per-product services.
+- Apps should treat `status = "active"` plus (no `expires_at` or `expires_at > now()`) as the only sufficient condition for granting access.
+- The schema guarantees exactly one of `course_id` / `agent_id` / `package_id` is non-null per row, so apps can switch on `product_kind` safely.
