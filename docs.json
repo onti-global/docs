@@ -163,6 +163,22 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "api",
+        "versions": [
+          {
+            "version": "v1",
+            "dropdowns": [
+              {
+                "dropdown": "user",
+                "pages": [
+                  "products"
+                ]
+              }
+            ]
+          }
+        ]
       }
     ]
   },
