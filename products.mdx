@@ -17,11 +17,11 @@ Provides the Apps with the product-level access a user has based on their purcha
 
 ## Query parameters
 
-| Name | Type | Required | Description |
-| --- | --- | --- | --- |
-| `product_kind` | `"course" | "agent" | "onti_package"` | No | Filter results to a single product kind. Omit to return all kinds. |
-| `status` | `"active" | "expired" | "revoked"` | No | Filter by entitlement status. Defaults to `"active"` so apps get only currently usable products. |
-| `include` | `"product"` (comma-separated, repeatable) | No | Hydrate the referenced product object (course / agent / onti\_package) inline instead of id-only. |
+| Name | Type | Required | Description |  |  |
+| --- | --- | --- | --- | --- | --- |
+| `product_kind` | \`"course" | "agent" | "onti\_package"\` | No | Filter results to a single product kind. Omit to return all kinds. |
+| `status` | \`"active" | "expired" | "revoked"\` | No | Filter by entitlement status. Defaults to `"active"` so apps get only currently usable products. |
+| `include` | `"product"` (comma-separated, repeatable) | No | Hydrate the referenced product object (course / agent / onti\_package) inline instead of id-only. |  |  |
 
 ## Response body
 
@@ -85,18 +85,18 @@ Provides the Apps with the product-level access a user has based on their purcha
 
 ### Row fields
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `id` | `uuid` | Entitlement row id (`user_products.id`). |
-| `user_id` | `uuid` | Authenticated user id (`auth.users.id`). |
-| `product_kind` | `"course" | "agent" | "onti_package"` | Which product type this row grants. Exactly one of the `*_id` fields below will be non-null. |
-| `course_id` | `uuid | null` | Set when `product_kind = "course"`. |
-| `agent_id` | `uuid | null` | Set when `product_kind = "agent"`. |
-| `package_id` | `uuid | null` | Set when `product_kind = "onti_package"`. |
-| `status` | `"active" | "expired" | "revoked"` | Current entitlement state. |
-| `granted_at` | `timestamptz` | When access was granted. |
-| `expires_at` | `timestamptz | null` | End of access window. `null` means no expiration (typical for one-time course purchases). |
-| `product` | `object | undefined` | Only present when `include=product` is requested. Shape varies by `product_kind` (see above). |
+| Field | Type | Description |  |  |
+| --- | --- | --- | --- | --- |
+| `id` | `uuid` | Entitlement row id (`user_products.id`). |  |  |
+| `user_id` | `uuid` | Authenticated user id (`auth.users.id`). |  |  |
+| `product_kind` | \`"course" | "agent" | "onti\_package"\` | Which product type this row grants. Exactly one of the `*_id` fields below will be non-null. |
+| `course_id` | \`uuid | null\` | Set when `product_kind = "course"`. |  |
+| `agent_id` | \`uuid | null\` | Set when `product_kind = "agent"`. |  |
+| `package_id` | \`uuid | null\` | Set when `product_kind = "onti_package"`. |  |
+| `status` | \`"active" | "expired" | "revoked"\` | Current entitlement state. |
+| `granted_at` | `timestamptz` | When access was granted. |  |  |
+| `expires_at` | \`timestamptz | null\` | End of access window. `null` means no expiration (typical for one-time course purchases). |  |
+| `product` | \`object | undefined\` | Only present when `include=product` is requested. Shape varies by `product_kind` (see above). |  |
 
 ## Errors
 

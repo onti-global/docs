@@ -155,7 +155,6 @@
         "tab": "Database",
         "icon": "database",
         "pages": [
-          "conventions-md",
           {
             "group": "Schemas",
             "pages": [
@@ -178,6 +177,13 @@
               }
             ]
           }
+        ]
+      },
+      {
+        "tab": "supabase",
+        "pages": [
+          "conventions-md",
+          "db-sql"
         ]
       }
     ]
