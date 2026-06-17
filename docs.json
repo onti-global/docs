@@ -152,6 +152,38 @@
         ]
       },
       {
+        "tab": "Suprahumano",
+        "icon": "sparkles",
+        "groups": [
+          {
+            "group": "Programa",
+            "pages": ["suprahumano/index"]
+          },
+          {
+            "group": "Los 16 Códigos del SER",
+            "pages": [
+              "suprahumano/codigo-00-el-llamado",
+              "suprahumano/codigo-01-el-juego",
+              "suprahumano/codigo-02-tu-metro-cuadrado",
+              "suprahumano/codigo-03-la-mente-programada",
+              "suprahumano/codigo-04-la-vida-tu-espejo",
+              "suprahumano/codigo-05-alquimia-del-alma",
+              "suprahumano/codigo-06-el-observador",
+              "suprahumano/codigo-07-la-consciencia",
+              "suprahumano/codigo-08-el-espacio-de-las-variantes",
+              "suprahumano/codigo-09-intencion-creadora",
+              "suprahumano/codigo-10-firme-determinacion",
+              "suprahumano/codigo-11-la-importancia-personal",
+              "suprahumano/codigo-12-los-pendulos",
+              "suprahumano/codigo-13-el-poder-del-ahora",
+              "suprahumano/codigo-14-frecuencia-de-poder",
+              "suprahumano/codigo-15-esenciales-del-amor",
+              "suprahumano/codigo-16-camino-suprahumano"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Database",
         "icon": "database",
         "pages": [
