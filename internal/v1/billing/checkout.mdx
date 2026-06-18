@@ -1,0 +1,187 @@
+---
+title: "checkout"
+api: "internal"
+endpoint: "/v1/billing/checkout"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Billing Checkout
+
+Creates a hosted checkout session at the configured payment vendor (Stripe today) for one or more line items and returns the URL the app should redirect the user to. Backed by the `billing_checkout_sessions` table — one row per attempt — and joined through `billing_prices` → `billing_products` so the catalog stays vendor-agnostic.
+
+This endpoint **only creates** the session. Payment capture, entitlement granting, and lifecycle transitions (`open` → `complete` / `expired` / `failed`) all flow through `/v1/billing/webhook` and the projector that reads `billing_events`. The app should never poll this endpoint to check payment status.
+
+## Authentication
+
+- Requires a **static API key** sent in the `x-api-key` header. No `Authorization` header, no Bearer scheme, no scopes — it's a simple shared secret.
+- The endpoint is callable from **unauthenticated contexts** (landing pages, pricing pages, paid ads → checkout flows). It does **not** require a Supabase Auth JWT.
+- The request body MUST include `customer_email`. The handler passes it to Stripe as the session's `customer_email` (Stripe pre-fills it on the hosted page and treats it as the buyer identity). `user_id` on `billing_checkout_sessions` stays `null` at create time and is set by the webhook projector when `checkout.session.completed` arrives — reconciled against `auth.users` via the email / `vendor_customer_id`.
+- Missing or invalid `x-api-key` returns `401 unauthenticated`.
+
+The request body is addressed by the vendor's catalog ids (`vendor_product_id` \+ `vendor_price_id`), not our internal `billing_prices.id`. Storefronts (landing pages, pricing tables) typically render directly from the vendor's catalog, so the app never has to look up our internal ids. The handler is responsible for mapping each `(vendor_product_id, vendor_price_id)` pair back to `billing_products` / `billing_prices`.
+
+## Request body
+
+```json
+{
+  "products": [
+    {
+      "vendor_product_id": "prod_NXyZ123abc",
+      "vendor_price_id": "price_1Q3xYz2eZvKYlo2C",
+      "quantity": 1,
+      "coupon": null
+    }
+  ],
+  "customer_email": "buyer@example.com",
+  "success_url": "https://app.onti.global/billing/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancel_url": "https://app.onti.global/billing/cancel",
+  "metadata": {
+    "campaign": "spring-2026"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `products` | `array` | Yes | One or more line items. Must contain at least one entry. All entries must resolve to the same `billing_vendor` — mixing vendors in a single checkout is rejected. |
+| `products[].vendor_product_id` | `string` | Yes | The vendor's product id (e.g. Stripe `prod_…`). Resolved against `billing_products.vendor_product_id`. Must reference an `active` row. |
+| `products[].vendor_price_id` | `string` | Yes | The vendor's price id (e.g. Stripe `price_…`). Resolved against `billing_prices.vendor_price_id`. Must reference an `active` row whose `product_id` matches the resolved `billing_products.id`. |
+| `products[].quantity` | `integer` | Yes | Quantity for this line item. Must be `>= 1`. Recurring prices typically use `1`. |
+| `products[].coupon` | \`string \| null\` | No | Vendor coupon / promotion code to apply to this line. `null` means no coupon. Forwarded verbatim to the vendor; we do not maintain a coupon catalog of our own. |
+| `customer_email` | `string` | Yes | Buyer's email. Passed to Stripe as `customer_email`, pre-filled on the hosted page, and used as the reconciliation key against `auth.users` by the webhook projector. Required — even logged-in flows must supply it explicitly so the projector never has to guess. |
+| `success_url` | `string` | Yes | URL the vendor redirects to after a successful payment. The `{CHECKOUT_SESSION_ID}` token is replaced by the vendor with the vendor's session id. |
+| `cancel_url` | `string` | Yes | URL the vendor redirects to if the user abandons checkout. |
+| `metadata` | `object` | No | Free-form key/value pairs persisted on `billing_checkout_sessions.metadata` and forwarded to the vendor. Strings only. |
+
+## Behavior
+
+1. For each entry in `products`, resolve the pair `(vendor_product_id, vendor_price_id)`:
+   - Reject with `400 invalid_product` if `billing_products` has no matching row, or the row is `archived`.
+   - Reject with `400 invalid_price` if `billing_prices` has no matching row, the row is `archived`, or `billing_prices.product_id` does not match the resolved `billing_products.id` (i.e. the price doesn't belong to that product).
+   - Reject with `400 invalid_quantity` if `quantity < 1`.
+2. Assert all line items share the same `vendor`. Reject with `400 mixed_vendors` otherwise. A single checkout is single-vendor by design.
+3. Call the vendor to create a hosted checkout session. For Stripe, the handler issues a `checkout.sessions.create` call with the following configuration:
+   - `mode` — `subscription` if any resolved line item has `billing_prices.type = 'recurring'`, otherwise `payment`.
+   - `line_items[]` — one entry per resolved line item:
+     - `price` — the line's `vendor_price_id` (Stripe `price_…`).
+     - `quantity` — the line's `quantity`.
+   - `discounts[]` — one entry per line item with a non-null `coupon` (Stripe `{ coupon }` or `{ promotion_code }` depending on the value).
+   - `customer_email` — the request's `customer_email`. Required at the API layer; passed through so Stripe pre-fills it and uses it as the buyer identity.
+   - `customer_creation` — `always` (in `payment` mode) so every successful checkout produces a `vendor_customer_id` we can reconcile against `auth.users` later. Not set in `subscription` mode (Stripe always creates a customer for subscriptions).
+   - `success_url`, `cancel_url` — from the request.
+   - `expires_at` — Stripe's default (24h) unless overridden.
+   - `metadata` — system fields written to the Stripe session so they're echoed back on every webhook event for this session:
+     - `billing_checkout_session_id` — our `billing_checkout_sessions.id`.
+     - `vendor_product_ids` — comma-joined list of `vendor_product_id`s from the cart.
+     - `vendor_price_ids` — comma-joined list of `vendor_price_id`s from the cart.
+     - `billing_product_ids` — comma-joined list of resolved `billing_products.id`s.
+     - `billing_price_ids` — comma-joined list of resolved `billing_prices.id`s.
+     - any keys from the request's `metadata` object, namespaced under `app_*` to avoid collisions. Echoing both vendor and internal ids in Stripe metadata means the webhook projector can map any incoming `checkout.session.*`, `invoice.*`, or `refund.*` event back to our rows without a second database lookup.
+4. Insert one row into `billing_checkout_sessions`:
+   - `vendor` — the shared vendor.
+   - `vendor_checkout_session_id` — the vendor's session id (Stripe `cs_…`).
+   - `user_id` — `auth.uid()` if a Supabase JWT was attached, otherwise `null` (reconciled later by the projector when the vendor identifies the buyer).
+   - `price_id` — the resolved `billing_prices.id` of the **first** line item, as a convenience pointer. The full cart is snapshotted in `metadata.line_items`.
+   - `status` — `open`.
+   - `amount_total`, `currency` — totals returned by the vendor on creation (sums quantities, applies coupons).
+   - `vendor_customer_id` — the vendor's customer id if one was created/reused for this user; otherwise null until the webhook fills it in.
+   - `expires_at` — when the vendor will expire the unpaid session.
+   - `metadata` — the request `metadata` merged with system fields:
+     - `metadata.line_items` — array of every resolved line item: `{ billing_product_id, billing_price_id, vendor_product_id, vendor_price_id, quantity, coupon }`.
+     - `metadata.customer_email` — the email used to seed the vendor session, if any.
+5. Return the row id plus the hosted `url` for the app to redirect to.
+
+All subsequent state transitions (`status`, `completed_at`, `vendor_payment_intent_id`, granting `user_products`) happen via `/v1/billing/webhook` → projector. This endpoint never updates an existing `billing_checkout_sessions` row.
+
+## Response body
+
+`201 Created` — session created, app should redirect the user to `url`.
+
+```json
+{
+  "id": "f201...3b",
+  "vendor": "stripe",
+  "vendor_checkout_session_id": "cs_test_a1b2c3...",
+  "status": "open",
+  "url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3...",
+  "amount_total": 1999,
+  "currency": "USD",
+  "expires_at": "2026-06-18T15:30:00Z",
+  "line_items": [
+    {
+      "billing_product_id": "a9c3...0f",
+      "billing_price_id": "c8f1...9a",
+      "vendor_product_id": "prod_NXyZ123abc",
+      "vendor_price_id": "price_1Q3xYz2eZvKYlo2C",
+      "quantity": 1,
+      "coupon": null,
+      "product": {
+        "name": "Onti Plus",
+        "onti_product_kind": "onti_package",
+        "onti_product_id": "a9c3...0f"
+      },
+      "price": {
+        "type": "recurring",
+        "unit_amount": 1999,
+        "currency": "USD",
+        "interval": "month",
+        "interval_count": 1
+      }
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | `billing_checkout_sessions.id`. Use this when correlating with webhook events. |
+| `vendor` | `billing_vendor` | Vendor that owns this session. |
+| `vendor_checkout_session_id` | `string` | Vendor's session id. |
+| `status` | `billing_checkout_status` | Always `"open"` on creation. |
+| `url` | `string` | Hosted checkout URL. The app should redirect immediately. |
+| `amount_total` | `integer` | Total in the smallest currency unit, as computed by the vendor (sums quantities, applies coupons). |
+| `currency` | `string` | ISO 4217 currency code. |
+| `expires_at` | `timestamptz` | When the vendor will expire the session if unpaid. |
+| `line_items` | `array` | One entry per resolved line item, echoing the request fields plus the resolved `billing_product_id` / `billing_price_id` and hydrated product/price snapshots (incl. `onti_product_kind` / `onti_product_id`). Lets the app render a confirmation screen without a second round-trip. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid `x-api-key`. |
+| `400` | `empty_cart` | `products` is missing, not an array, or empty. |
+| `400` | `invalid_product` | A `vendor_product_id` does not resolve to an `activebilling_products` row. |
+| `400` | `invalid_price` | A `vendor_price_id` does not resolve to an `activebilling_prices` row, or it does not belong to the matching `billing_products` row. |
+| `400` | `invalid_quantity` | A `quantity` is missing, not an integer, or `< 1`. |
+| `400` | `mixed_vendors` | Line items resolve to different `billing_vendor` values. A single checkout must be single-vendor. |
+| `400` | `missing_customer_email` | `customer_email` is missing or not a valid email. |
+| `400` | `invalid_redirect_url` | `success_url` or `cancel_url` is missing or not an allowed origin. |
+| `409` | `duplicate_active_entitlement` | `customer_email` matches an existing Supabase user that already has an `activeuser_products` row for an entitlement one of the lines would grant (only enforced for non-recurring prices). |
+| `502` | `vendor_error` | The vendor rejected the create-session call. Body includes the vendor error code where safe to expose. |
+| `500` | `internal_error` | Unexpected failure persisting the session. |
+
+```json
+{
+  "error": {
+    "code": "invalid_price",
+    "message": "vendor_price_id 'price_1Q3xYz2eZvKYlo2C' is archived or does not belong to vendor_product_id 'prod_NXyZ123abc'"
+  }
+}
+```
+
+## Notes
+
+- The endpoint is authenticated with a static `x-api-key` so it can be called from landing pages, marketing sites, and app backends alike. Identity (the Supabase user) is **resolved at webhook time**, not at create time: `billing_checkout_sessions.user_id` is set by the projector when the vendor delivers `checkout.session.completed` with the buyer's email / `vendor_customer_id`.
+- The contract is addressed by **vendor ids** on input so storefronts can wire directly from the vendor catalog; the response echoes both vendor ids and our internal `billing_product_id` / `billing_price_id` so subsequent reads (e.g. `/v1/user/products`) can join cleanly.
+- `coupon` is forwarded verbatim. We intentionally do not mirror coupons into our schema — they live in the vendor and are reflected back to us through `billing_events` (e.g. `invoice.created` carries the applied discount).
+- A single checkout is single-vendor by design. Cross-vendor carts would require splitting into multiple sessions and reconciling them, which we don't do today. If we ever need it, add a `parent_checkout_session_id` to `billing_checkout_sessions` first.
+- `billing_checkout_sessions.price_id` only points at the first line item as a convenience. Treat `metadata.line_items` as the source of truth for the full cart.
+- `billing_checkout_sessions.price_id` is set `on delete set null` so an archived/deleted price doesn't cascade-delete checkout history; `amount_total` / `currency` are snapshotted on the row.
+- A session in `status = 'open'` past `expires_at` is normal — the vendor will deliver a `checkout.session.expired` webhook, and the projector flips the row to `expired`. Do not write a sweeper that mutates `billing_checkout_sessions` directly.
+- To start selling a new product: create rows in `billing_products` and `billing_prices` (linked to the vendor's catalog), then call this endpoint with the new `vendor_product_id` / `vendor_price_id`. No code changes required.

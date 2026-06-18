@@ -1,0 +1,118 @@
+---
+title: "webhook"
+api: "internal"
+endpoint: "/v1/billing/webhook"
+method: "post"
+client: "vendor"
+---
+
+# POST Billing Webhook
+
+Receives webhook deliveries from a payment vendor (Stripe today, additional vendors later) and persists them into the `billing_events` table for asynchronous processing. The endpoint itself does **not** mutate `billing_products`, `billing_prices`, `billing_checkout_sessions`, or `user_products` — a separate projector reads `pending` events from `billing_events` and applies them. This keeps the ingest path tiny, fast, and idempotent, and gives us a full audit log of everything the vendor told us.
+
+## Authentication
+
+- Authentication is **vendor-specific signature verification**, not a Supabase JWT. The endpoint is public on the network but only accepts requests whose signature matches the configured webhook secret for the vendor.
+- For Stripe: the request must carry a valid `Stripe-Signature` header. The handler verifies it against the webhook secret bound to the `stripe` variant of the `billing_vendor` enum, using the raw request body (do **not** parse JSON before verifying).
+- A missing or invalid signature returns `401 unauthenticated`. The event is **not** written to `billing_events`.
+- The vendor is inferred from the route \+ signature scheme. We do not trust a vendor identifier supplied in the body.
+
+## Request
+
+### Headers
+
+| Header | Required | Description |
+| --- | --- | --- |
+| `Stripe-Signature` | Yes (Stripe) | Signature header sent by Stripe. Verified against the Stripe webhook secret. |
+| `Content-Type` | Yes | Always `application/json`. |
+
+### Body
+
+The raw event body as delivered by the vendor. The handler stores the full body verbatim in `billing_events.payload`, so we never lose fields the vendor adds later.
+
+For Stripe, the body is a standard [Event object](https://docs.stripe.com/api/events/object). Only the following `type` values are accepted — anything else returns `400 unsupported_event_type` and is **not** persisted:
+
+| Event type | Meaning |
+| --- | --- |
+| `checkout.session.async_payment_failed` | Payment intent using a delayed payment method failed. |
+| `checkout.session.async_payment_succeeded` | Payment intent using a delayed payment method finally succeeded. |
+| `checkout.session.completed` | A Checkout Session has been successfully completed. |
+| `checkout.session.expired` | A Checkout Session expired before payment. |
+| `invoice.created` | A new invoice was created. |
+| `invoice.deleted` | A draft invoice was deleted. Not sent for invoice previews. |
+| `invoice.paid` | An invoice payment attempt succeeded or the invoice was marked paid out-of-band. |
+| `invoice.payment_succeeded` | An invoice payment attempt succeeded. |
+| `refund.created` | A refund was created. |
+| `refund.failed` | A refund failed. |
+| `refund.updated` | A refund was updated. |
+
+These are exactly the variants of the `billing_event_type` enum in `schema.sql`. To start subscribing to a new event type, add it to the enum first, then update this list.
+
+## Behavior
+
+1. Read the raw body and the vendor signature header.
+2. Verify the signature against the vendor's webhook secret. On failure → `401`.
+3. Parse the body. Validate `type` is in the supported list. On failure → `400`.
+4. Upsert a row into `billing_events` on `(vendor, vendor_event_id)`:
+   - `vendor` — derived from the route (`stripe` today).
+   - `vendor_event_id` — the vendor's event id (Stripe `id`, e.g. `evt_…`).
+   - `type` — the validated `billing_event_type`.
+   - `payload` — the full raw body as JSONB.
+   - `status` — `pending`.
+   - `received_at` — `now()`.
+5. Return `200` immediately. The projector job picks up `pending` rows in `received_at` order and applies them to `billing_products`, `billing_prices`, `billing_checkout_sessions`, and `user_products` as appropriate, flipping `status` to `processed`, `failed`, or `ignored`.
+
+Idempotency is guaranteed by the `unique (vendor, vendor_event_id)` constraint on `billing_events`. Vendors retry deliveries aggressively; duplicate deliveries collapse into a single row and a single projector run.
+
+## Response body
+
+`200 OK` — the event was accepted and persisted (or was a duplicate of one already persisted).
+
+```json
+{
+  "received": true,
+  "event_id": "9a4b...c1",
+  "vendor_event_id": "evt_1Q3xYz2eZvKYlo2C9aBcDeFg",
+  "type": "checkout.session.completed",
+  "status": "pending",
+  "duplicate": false
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `received` | `boolean` | Always `true` on `200`. |
+| `event_id` | `uuid` | The `billing_events.id` of the persisted row. |
+| `vendor_event_id` | `string` | The vendor's event id that was stored. |
+| `type` | `billing_event_type` | The event type that was stored. |
+| `status` | \`"pending" \| "processed" \| "failed" \| "ignored"\` | Current `billing_events.status`. Almost always `"pending"` at this point — the projector runs out-of-band. |
+| `duplicate` | `boolean` | `true` if the event was already present (matched on `(vendor, vendor_event_id)`). The vendor should still treat this as a success. |
+
+The handler always returns `200` for any vendor delivery it can verify and recognize, even on duplicates. This stops the vendor from retrying forever.
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid vendor signature. |
+| `400` | `invalid_payload` | Body is not valid JSON or is missing required vendor fields (e.g. no `id`, no `type`). |
+| `400` | `unsupported_event_type` | `type` is not in the accepted list above. The event is **not** written to `billing_events`. |
+| `500` | `internal_error` | Unexpected failure persisting the event. The vendor will retry. |
+
+```json
+{
+  "error": {
+    "code": "unsupported_event_type",
+    "message": "Event type 'customer.subscription.updated' is not handled. Add it to billing_event_type before subscribing."
+  }
+}
+```
+
+## Notes
+
+- The handler is intentionally dumb: verify signature, validate type, write one row, return `200`. All business logic (granting access, expiring entitlements, reconciling invoices) lives in the projector that consumes `billing_events`. This separation is what makes replay safe — re-running the projector against the same `billing_events` rows produces the same downstream state.
+- The endpoint is vendor-agnostic by design. Adding Paddle, Lemon Squeezy, etc. means: add a variant to `billing_vendor`, add a signature verifier, route the new vendor's events through the same `billing_events` ingest. No downstream table changes.
+- Never log the raw payload outside of `billing_events.payload` — it can contain PII and partial card metadata. Reference events by `billing_events.id` in operational logs.
+- The projector is responsible for ordering edge cases (e.g. `checkout.session.completed` arriving before `checkout.session.async_payment_succeeded`). The ingest endpoint does not attempt to reorder.

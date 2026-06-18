@@ -187,7 +187,6 @@
         "tab": "Database",
         "icon": "database",
         "pages": [
-          "conventions-md",
           {
             "group": "Schemas",
             "pages": [
@@ -209,12 +208,30 @@
                 ]
               }
             ]
+          },
+          {
+            "version": "internal",
+            "tabs": [
+              {
+                "tab": "v1",
+                "groups": [
+                  {
+                    "group": "billing",
+                    "pages": [
+                      "internal/v1/billing/checkout",
+                      "internal/v1/billing/webhook"
+                    ]
+                  }
+                ]
+              }
+            ]
           }
         ]
       },
       {
         "tab": "supabase",
         "pages": [
+          "conventions-md",
           "schema"
         ]
       }
