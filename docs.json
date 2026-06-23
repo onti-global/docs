@@ -221,6 +221,12 @@
                       "internal/v1/billing/checkout",
                       "internal/v1/billing/webhook"
                     ]
+                  },
+                  {
+                    "group": "admin",
+                    "pages": [
+                      "kpis-get-md"
+                    ]
                   }
                 ]
               }

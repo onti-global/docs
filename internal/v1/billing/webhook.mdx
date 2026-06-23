@@ -4,11 +4,12 @@ api: "internal"
 endpoint: "/v1/billing/webhook"
 method: "post"
 client: "vendor"
+tag: "api"
 ---
 
 # POST Billing Webhook
 
-Receives webhook deliveries from a payment vendor (Stripe today, additional vendors later) and persists them into the `billing_events` table for asynchronous processing. The endpoint itself does **not** mutate `billing_products`, `billing_prices`, `billing_checkout_sessions`, or `user_products` — a separate projector reads `pending` events from `billing_events` and applies them. This keeps the ingest path tiny, fast, and idempotent, and gives us a full audit log of everything the vendor told us.
+Receives webhook deliveries from a payment vendor (Stripe today, additional vendors later) and persists them into the `billing_events` table for asynchronous processing. The endpoint itself does **not** mutate `billing_products`, `billing_prices`, `billing_checkout_sessions`, `user_products`, or `product_access` — a separate projector reads `pending` events from `billing_events` and applies them. This keeps the ingest path tiny, fast, and idempotent, and gives us a full audit log of everything the vendor told us.
 
 ## Authentication
 
@@ -60,9 +61,33 @@ These are exactly the variants of the `billing_event_type` enum in `schema.sql`.
    - `payload` — the full raw body as JSONB.
    - `status` — `pending`.
    - `received_at` — `now()`.
-5. Return `200` immediately. The projector job picks up `pending` rows in `received_at` order and applies them to `billing_products`, `billing_prices`, `billing_checkout_sessions`, and `user_products` as appropriate, flipping `status` to `processed`, `failed`, or `ignored`.
+5. Return `200` immediately. The projector job picks up `pending` rows in `received_at` order and applies them to `billing_products`, `billing_prices`, `billing_checkout_sessions`, `user_products`, and `product_access` as appropriate, flipping `status` to `processed`, `failed`, or `ignored`.
 
 Idempotency is guaranteed by the `unique (vendor, vendor_event_id)` constraint on `billing_events`. Vendors retry deliveries aggressively; duplicate deliveries collapse into a single row and a single projector run.
+
+### `product_access` transitions
+
+Every `product_access` row is created by [`/v1/billing/checkout`](/internal/v1/billing/checkout) in `status = 'checkout'`. From that point on, **only the projector** mutates the row, always keyed by `checkout_session_id` (which is `unique` — see [`schema.sql`](/schema) §8). The status machine the projector applies is:
+
+| Event | Resulting `product_access.status` | Other fields the projector writes |
+| --- | --- | --- |
+| `checkout.session.expired` | `expired` | — |
+| `checkout.session.async_payment_failed` | `expired` | — |
+| `checkout.session.completed` (sync payment, `payment_status = 'paid'`, one-time price) | `paid` | `paid_at = now()`, `confirmed_at = now()`, `amount_paid`, `currency`, `access_starts_at = now()`, `access_expires_at` (from price metadata if any), `user_id` (reconciled by email if absent), `course_enrollment_id` (provisioned if `course_id is not null`). |
+| `checkout.session.completed` (sync payment, `payment_status = 'paid'`, recurring price) | `subscribed` | Same as above except `access_expires_at` tracks the current subscription period end. |
+| `checkout.session.completed` (`payment_status = 'unpaid'`, async payment expected) | `pending_confirmation` | `confirmed_at` left `null`. |
+| `checkout.session.async_payment_succeeded` | `paid` (one-time) / `subscribed` (recurring) | Same set as the sync `completed` row. |
+| `invoice.payment_succeeded` / `invoice.paid` for a subscription renewal | `subscribed` | `access_expires_at` extended to the new period end. |
+| `invoice.created` for an upcoming subscription invoice | unchanged | Used only to refresh `access_expires_at` projections. |
+| Subscription period ended without renewal (derived from invoice events) | `expired` | `access_expires_at` ≤ `now()`. |
+| `refund.created` / `refund.updated` (full refund) | `expired` | `access_expires_at = now()`. Partial refunds leave status unchanged. |
+
+Notes on the transitions:
+
+- The projector is the only writer for `product_access` post-create; the webhook endpoint itself never touches the table.
+- `user_id` is backfilled here when the buyer's `auth.users` row exists. If it doesn't yet, the row stays anonymous and the signup trigger (or a sweeper) links it later by `lower(email)`.
+- `course_enrollment_id` is filled in once the projector provisions the `course_enrollments` row for course products. For non-course products it stays `null`.
+- Transitions to terminal states (`expired`) are one-way. A new purchase produces a new `product_access` row; we never resurrect an expired one.
 
 ## Response body
 

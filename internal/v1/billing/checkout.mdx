@@ -94,9 +94,19 @@ The request body is addressed by **our internal ids** (`billing_products.id` \+ 
    - `metadata` — the request `metadata` merged with system fields:
      - `metadata.line_items` — array of every resolved line item: `{ billing_product_id, billing_price_id, vendor_product_id, vendor_price_id, quantity, coupon }`.
      - `metadata.customer_email` — the email used to seed the vendor session, if any.
-5. Return the row id plus the hosted `url` for the app to redirect to.
+5. Insert one row into `product_access` per line item (the lifecycle log the access service reads from — see [`schema.sql`](/schema) §8):
+   - `checkout_session_id` — the `billing_checkout_sessions.id` just created. The unique constraint on this column means the row is the projector's reconciliation key for every downstream webhook event.
+   - `billing_product_id` — the resolved `billing_products.id`.
+   - `course_id` — the underlying `courses.id` if `billing_products.onti_product_kind = 'course'`, else `null`. Set only here; never overwritten by the projector.
+   - `user_id` — `auth.uid()` if a Supabase JWT was attached, otherwise `null`. Most checkouts are anonymous (landing pages); the projector / signup trigger backfills `user_id` later by matching `email`.
+   - `email` — the request's `customer_email`. Required so the row can be reconciled to an `auth.users` row created post-purchase.
+   - `status` — `'checkout'`. The only status this endpoint ever writes.
+   - `type` — `'subscription'` if any resolved price has `billing_prices.type = 'recurring'`, else `'one_time'`. Snapshotted so lifecycle reasoning doesn't need to re-join `billing_prices`.
+   - `amount_paid`, `currency` — `null` at create time. Filled in by the projector when the vendor confirms capture.
+   - `checkout_started_at` — `now()`. All other timestamps (`confirmed_at`, `paid_at`, `access_starts_at`, `access_expires_at`) are left `null` for the webhook to set.
+6. Return the row id plus the hosted `url` for the app to redirect to.
 
-All subsequent state transitions (`status`, `completed_at`, `vendor_payment_intent_id`, granting `user_products`) happen via `/v1/billing/webhook` → projector. This endpoint never updates an existing `billing_checkout_sessions` row.
+All subsequent state transitions (`status`, `completed_at`, `vendor_payment_intent_id`, granting `user_products`, and every `product_access` status flip) happen via `/v1/billing/webhook` → projector. This endpoint never updates an existing `billing_checkout_sessions` or `product_access` row.
 
 ## Response body
 

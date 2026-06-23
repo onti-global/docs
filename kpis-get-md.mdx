@@ -1,0 +1,121 @@
+---
+title: "kpis.get.md"
+api: "admin"
+endpoint: "internal/v1/admin/kpis"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# GET Admin KPIs
+
+Returns a snapshot of the headline KPIs surfaced on the home view of the internal back-office dashboard. This is the **first** endpoint the admin web app calls on load — it powers the top-of-page tile row (active users, paid users, MRR, new signups, etc.) before any heavier per-tab queries fire.
+
+The endpoint is read-only, aggregates over `auth.users`, `user_products`, `billing_checkout_sessions`, and `billing_prices`, and is safe to poll on a short interval. All numbers are computed at request time; there is no caching layer in front of this endpoint today.
+
+## Authentication
+
+Every endpoint under `/v1/admin/*` is gated by a **Supabase Auth JWT** that carries the `admin_dashboard_role` custom claim — see `admin_dashboard_jwt_hook` in [`schema.sql`](/schema) for how the claim is stamped onto the token.
+
+- Required header: `Authorization: Bearer <supabase_jwt>`.
+- The JWT must include `admin_dashboard_role` set to one of:
+  - `"admin"` — full read/write across the dashboard. Allowed.
+  - `"analyst"` — read-only access to analytics and reporting surfaces. Allowed for this endpoint (it's read-only).
+- Any other value, or a JWT without the claim at all, is rejected. A user with no row in `admin_dashboard_access` will not have the claim on their token and therefore cannot reach this endpoint.
+- The handler does **not** consult `admin_dashboard_access` directly — it trusts the JWT claim. The claim is the source of truth at request time; access revocations propagate on the next token refresh.
+
+| Outcome | Status | Code |
+| --- | --- | --- |
+| Missing / malformed / expired JWT | `401` | `unauthenticated` |
+| JWT valid but `admin_dashboard_role` claim missing or not in (`admin`, `analyst`) | `403` | `forbidden` |
+
+## Request
+
+### Query parameters
+
+| Param | Type | Required | Description |
+| --- | --- | --- | --- |
+| `as_of` | `timestamptz` | No | ISO-8601 timestamp to snapshot KPIs at. Defaults to `now()`. Used by the dashboard to back-fill a sparkline or compare against a prior point in time. Must not be in the future. |
+| `currency` | `string` | No | ISO 4217 currency code to report monetary KPIs in. Defaults to `USD`. Today only currencies that already exist on `billing_prices.currency` are accepted; mixed-currency carts are summed per-currency and converted to the requested currency using a static rate table. Pass-through for now — no FX in production. |
+
+No request body.
+
+## Response
+
+`200 OK`
+
+```json
+{
+  "as_of": "2026-06-23T17:42:00Z",
+  "currency": "USD",
+  "users": {
+    "total": 18432,
+    "active_30d": 6210,
+    "new_7d": 284,
+    "new_30d": 1109
+  },
+  "revenue": {
+    "mrr": 4823900,
+    "mrr_delta_30d": 218400,
+    "gross_volume_30d": 6120450,
+    "currency": "USD"
+  },
+  "entitlements": {
+    "active_user_products": 9821,
+    "active_onti_package_subscribers": 1342,
+    "active_course_enrollments": 7044
+  },
+  "checkout": {
+    "sessions_created_7d": 612,
+    "sessions_completed_7d": 419,
+    "conversion_rate_7d": 0.6846
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `as_of` | `timestamptz` | The snapshot timestamp the numbers were computed against. Echoes the request's `as_of`, or `now()` if it was omitted. |
+| `currency` | `string` | ISO 4217 code all monetary fields are reported in. |
+| `users.total` | `integer` | `count(*) from auth.users` where the user is not soft-deleted. |
+| `users.active_30d` | `integer` | Distinct users with `user_details.last_active_at >= as_of - 30 days`. |
+| `users.new_7d` | `integer` | `auth.users.created_at` within the last 7 days. |
+| `users.new_30d` | `integer` | `auth.users.created_at` within the last 30 days. |
+| `revenue.mrr` | `integer` | Monthly recurring revenue in the smallest currency unit (cents). Sum of `billing_prices.unit_amount * quantity` for every `activeuser_products` row whose underlying price is `recurring`, normalized to a monthly cadence. |
+| `revenue.mrr_delta_30d` | `integer` | `mrr` now minus `mrr` 30 days ago, in cents. Can be negative. |
+| `revenue.gross_volume_30d` | `integer` | Sum of `billing_checkout_sessions.amount_total` where `status = 'complete'` and `completed_at >= as_of - 30 days`, in cents. |
+| `revenue.currency` | `string` | Matches the top-level `currency`. Repeated for convenience when the revenue block is rendered standalone. |
+| `entitlements.active_user_products` | `integer` | `count(*) from user_products where status = 'active'`. |
+| `entitlements.active_onti_package_subscribers` | `integer` | Distinct `user_id` with an `activeuser_products` row where `product_kind = 'onti_package'`. |
+| `entitlements.active_course_enrollments` | `integer` | `count(*) from course_enrollments where status = 'active'`. |
+| `checkout.sessions_created_7d` | `integer` | `count(*) from billing_checkout_sessions where created_at >= as_of - 7 days`. |
+| `checkout.sessions_completed_7d` | `integer` | Same window, filtered to `status = 'complete'`. |
+| `checkout.conversion_rate_7d` | `float` | `sessions_completed_7d / sessions_created_7d`, rounded to 4 decimals. `0` when the denominator is `0`. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing / malformed / expired JWT. |
+| `403` | `forbidden` | JWT valid but `admin_dashboard_role` is missing or not one of `admin`, `analyst`. |
+| `400` | `invalid_as_of` | `as_of` is not a valid ISO-8601 timestamp, or is in the future. |
+| `400` | `invalid_currency` | `currency` is not a recognized ISO 4217 code, or no `billing_prices` rows exist in that currency. |
+| `500` | `internal_error` | Unexpected failure aggregating the KPIs. |
+
+```json
+{
+  "error": {
+    "code": "forbidden",
+    "message": "admin_dashboard_role claim must be 'admin' or 'analyst'"
+  }
+}
+```
+
+## Notes
+
+- This endpoint is the entry point for the back-office dashboard. Keep it cheap: every field above should resolve to a single aggregate query, and the handler should run them in parallel.
+- KPIs are computed live. If query cost becomes a problem, the next step is a materialized view refreshed on a cron, exposed through the same response shape so the dashboard doesn't change.
+- `admin` and `analyst` see the **same** payload here. Role-based field hiding (e.g. hiding `revenue.*` from analysts) is not a requirement today — if it ever becomes one, branch on the JWT claim inside the handler rather than at the route layer so the response contract stays stable.
+- Do **not** add per-user PII (emails, names) to this response. It's an aggregates-only endpoint; user-scoped data lives behind dedicated `/v1/admin/users/*` endpoints with their own authorization checks.
