@@ -1,0 +1,106 @@
+---
+title: "insights-by-student"
+api: "v1"
+endpoint: "/admin/v1/students/:id/insights"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Student Insights
+
+Returns all insight memory records generated for a learner across all content interactions. Used by coaches and admins to understand a learner's patterns, struggles, and breakthroughs. Only `status = "active"` records are returned by default.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The learner's user id. |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `"active" \| "stale" \| "archived"` | No | Filter by memory status. Defaults to `"active"`. |
+| `content_id` | `uuid` | No | Filter to insights from a specific content item. |
+| `limit` | `integer` | No | Max results per page. Defaults to `50`. Max `200`. |
+| `cursor` | `string` | No | Pagination cursor from a previous response. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "i1...nn",
+      "user_id": "9c0a...77",
+      "content_id": "c1...ff",
+      "insight": "The learner expressed difficulty separating their own emotional state from the client's — a key coaching blind spot to revisit.",
+      "data": {
+        "tags": ["emotional_regulation", "projection"],
+        "confidence": 0.85
+      },
+      "status": "active",
+      "created_at": "2026-06-28T09:20:00Z",
+      "updated_at": "2026-06-28T09:20:00Z"
+    }
+  ],
+  "cursor": null
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Insight[]` | Insight memory records matching the filter. |
+| `cursor` | `string \| null` | Pagination cursor. `null` when no more results. |
+
+### Insight object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Insight id. |
+| `user_id` | `uuid` | Learner user id. |
+| `content_id` | `uuid` | The content item that generated this insight. |
+| `insight` | `string` | Free-form natural-language description. |
+| `data` | `object` | Structured metadata (tags, scores, etc.). Shape is application-defined. |
+| `status` | `"active" \| "stale" \| "archived"` | Memory lifecycle state. |
+| `created_at` | `timestamptz` | When the insight was recorded. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
+| `400` | `invalid_query_param` | `status` is not a valid enum value. |
+| `404` | `user_not_found` | No user with that id exists. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_query_param",
+    "message": "status must be one of: active, stale, archived"
+  }
+}
+```
+
+## Notes
+
+- `data.confidence` is a decimal in the range `0.0`–`1.0` (e.g. `0.85` = 85% confidence). Never a percentage string.

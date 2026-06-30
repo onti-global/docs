@@ -1,0 +1,77 @@
+---
+title: "assignments-update"
+api: "v1"
+endpoint: "/admin/v1/assignments/:id"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Override Variant Assignment
+
+Manually overrides a learner's variant assignment for a module. Use this to correct an incorrect automatic assignment or to grant a learner access to a specific variant regardless of their assessment answers.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The assignment id (`course_alumni_assignments.id`). |
+
+## Request body
+
+```json
+{
+  "variant_id": "v3...ii"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `variant_id` | `uuid` | Yes | The variant to assign. Must belong to the same module as the existing assignment. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "id": "a1...mm",
+  "user_id": "9c0a...77",
+  "module_id": "m1...cc",
+  "variant_id": "v3...ii",
+  "assigned_at": "2026-06-29T14:00:00Z",
+  "created_at": "2026-06-29T10:05:00Z",
+  "updated_at": "2026-06-29T14:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `variant_id` is missing or the target variant does not belong to the assignment's module. |
+| `404` | `not_found` | Assignment does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "variant_id does not belong to the module of this assignment"
+  }
+}
+```

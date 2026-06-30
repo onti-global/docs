@@ -206,6 +206,61 @@
                 "pages": [
                   "api/v1/user/products"
                 ]
+              },
+              {
+                "dropdown": "courses",
+                "pages": [
+                  "api/v1/courses/index",
+                  {
+                    "group": "Catalog",
+                    "pages": [
+                      "api/v1/courses/course.get",
+                      "api/v1/courses/course.id.get"
+                    ]
+                  },
+                  {
+                    "group": "Enrollment",
+                    "pages": [
+                      "api/v1/courses/enrollment.post",
+                      "api/v1/courses/enrollment.get"
+                    ]
+                  },
+                  {
+                    "group": "Onboarding",
+                    "pages": [
+                      "api/v1/courses/course.id.onboarding.get",
+                      "api/v1/courses/course.id.onboarding.post"
+                    ]
+                  },
+                  {
+                    "group": "Assessment",
+                    "pages": [
+                      "api/v1/courses/assessment.id.get",
+                      "api/v1/courses/assessment.id.responses.post"
+                    ]
+                  },
+                  {
+                    "group": "Player",
+                    "pages": [
+                      "api/v1/courses/course.id.modules.get",
+                      "api/v1/courses/variant.id.contents.get"
+                    ]
+                  },
+                  {
+                    "group": "Progress",
+                    "pages": [
+                      "api/v1/courses/progress.post",
+                      "api/v1/courses/course.id.progress.get"
+                    ]
+                  },
+                  {
+                    "group": "Answers",
+                    "pages": [
+                      "api/v1/courses/content.id.answers.post",
+                      "api/v1/courses/content.id.answers.get"
+                    ]
+                  }
+                ]
               }
             ]
           },
@@ -226,6 +281,55 @@
                     "group": "admin",
                     "pages": [
                       "kpis-get-md"
+                    ]
+                  },
+                  {
+                    "group": "courses — course builder",
+                    "pages": [
+                      "api/v1/courses/admin/course.create.post",
+                      "api/v1/courses/admin/course.update.put",
+                      "api/v1/courses/admin/module.create.post",
+                      "api/v1/courses/admin/variant.create.post",
+                      "api/v1/courses/admin/content.create.post",
+                      "api/v1/courses/admin/content.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — enrollment manager",
+                    "pages": [
+                      "api/v1/courses/admin/enrollment.list.get",
+                      "api/v1/courses/admin/enrollment.create.post",
+                      "api/v1/courses/admin/enrollment.update.patch"
+                    ]
+                  },
+                  {
+                    "group": "courses — assessment builder",
+                    "pages": [
+                      "api/v1/courses/admin/assessment.flow.create.post",
+                      "api/v1/courses/admin/assessment.question.create.post",
+                      "api/v1/courses/admin/assessment.question.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — assignment rules",
+                    "pages": [
+                      "api/v1/courses/admin/variant.policy.create.post",
+                      "api/v1/courses/admin/variant.rule.create.post",
+                      "api/v1/courses/admin/variant.rule.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — variant assignments",
+                    "pages": [
+                      "api/v1/courses/admin/assignment.list.get",
+                      "api/v1/courses/admin/assignment.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — insights",
+                    "pages": [
+                      "api/v1/courses/admin/insight.student.get",
+                      "api/v1/courses/admin/insight.content.get"
                     ]
                   }
                 ]

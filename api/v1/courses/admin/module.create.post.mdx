@@ -1,0 +1,91 @@
+---
+title: "modules-create"
+api: "v1"
+endpoint: "/admin/v1/courses/:id/modules"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Module
+
+Adds a new module to a course. Modules are the ordered chapters learners move through. `position` controls sort order within the course; the application is responsible for keeping positions contiguous.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The parent course id. |
+
+## Request body
+
+```json
+{
+  "title": "Module 3 — Emotional Regulation",
+  "description": "Techniques for managing emotional state in coaching sessions.",
+  "position": 2
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `title` | `string` | Yes | Module title. |
+| `description` | `string` | No | Optional module description. |
+| `position` | `integer` | No | Ascending sort order within the course. Defaults to `0`. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "m3...hh",
+  "course_id": "3cc4...e9",
+  "title": "Module 3 — Emotional Regulation",
+  "description": "Techniques for managing emotional state in coaching sessions.",
+  "position": 2,
+  "created_at": "2026-06-29T12:10:00Z",
+  "updated_at": "2026-06-29T12:10:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Module id. |
+| `course_id` | `uuid` | Parent course id. |
+| `title` | `string` | Module title. |
+| `description` | `string \| null` | Module description. |
+| `position` | `integer` | Sort order within the course. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `title` is missing or `position` is not a non-negative integer. |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "title is required and must be a non-empty string"
+  }
+}
+```

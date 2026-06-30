@@ -1,0 +1,124 @@
+---
+title: "course.id.onboarding.get"
+api: "v1"
+endpoint: "/v1/courses/:id/onboarding"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Course Onboarding
+
+Returns the intake questionnaire for a course along with the learner's existing submission, if any. The questionnaire is the assessment flow linked to this course via a `before_course` variant assignment policy.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- The learner must be enrolled in the course.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "flow": {
+    "id": "f3a1...88",
+    "title": "Pre-course questionnaire",
+    "version": 1,
+    "questions": [
+      {
+        "id": "q1...aa",
+        "type": "single_choice",
+        "question": "How would you describe your coaching experience?",
+        "options": [
+          { "value": "none", "label": "No experience" },
+          { "value": "beginner", "label": "Less than 1 year" },
+          { "value": "intermediate", "label": "1–3 years" },
+          { "value": "advanced", "label": "More than 3 years" }
+        ],
+        "position": 0,
+        "required": true
+      },
+      {
+        "id": "q2...bb",
+        "type": "text",
+        "question": "What is your primary goal for this course?",
+        "options": null,
+        "position": 1,
+        "required": false
+      }
+    ]
+  },
+  "response": {
+    "answers": {
+      "q1...aa": "beginner",
+      "q2...bb": "Build confidence in client sessions"
+    },
+    "completed_at": "2026-06-29T10:05:00Z"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `flow` | `object` | The assessment flow definition (questions, version). |
+| `flow.id` | `uuid` | Assessment flow id. |
+| `flow.title` | `string` | Questionnaire title. |
+| `flow.version` | `integer` | Form version — changes when the question set is updated. |
+| `flow.questions` | `Question[]` | Ordered list of questions. |
+| `response` | `object \| null` | The learner's existing submission. `null` if not yet submitted. |
+| `response.answers` | `object` | Map of `question_id → answer_value`. |
+| `response.completed_at` | `timestamptz \| null` | When the learner last submitted. |
+
+### Question object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Question id. Used as the key in `response.answers`. |
+| `type` | `"single_choice" \| "multiple_choice" \| "scale" \| "text" \| "boolean"` | Answer format. |
+| `question` | `string` | The question text shown to the learner. |
+| `options` | `Option[] \| null` | Non-null for `single_choice` and `multiple_choice` types. |
+| `position` | `integer` | Ascending display order within the flow. |
+| `required` | `boolean` | Whether the learner must answer before submitting. |
+
+### Option object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `value` | `string` | Machine-readable value stored in `answers`. |
+| `label` | `string` | Human-readable label shown in the UI. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `not_enrolled` | The learner is not enrolled in this course. |
+| `404` | `course_not_found` | Course does not exist or is not published. |
+| `404` | `no_onboarding` | The course has no `before_course` assessment flow configured. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_enrolled",
+    "message": "learner is not enrolled in this course"
+  }
+}
+```

@@ -1,0 +1,70 @@
+---
+title: "content.id.answers.get"
+api: "v1"
+endpoint: "/v1/contents/:id/answers"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Content Answers
+
+Returns the authenticated learner's submitted answers for a content item. Returns `404` if no submission exists yet.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- The learner must be assigned to the variant that contains this content item.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The content item id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "content_id": "c2...gg",
+  "answers": {
+    "question_1": "option_b",
+    "question_2": ["option_a", "option_c"]
+  },
+  "submitted_at": "2026-06-29T11:30:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `content_id` | `uuid` | The content item id. |
+| `answers` | `object` | The learner's most recent answers. Shape is defined by the content item's `body` JSON schema. |
+| `submitted_at` | `timestamptz` | When the answers were last submitted. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `variant_not_assigned` | The learner is not assigned to the variant containing this content. |
+| `404` | `content_not_found` | Content item does not exist. |
+| `404` | `no_submission` | The learner has not submitted answers for this item yet. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "no_submission",
+    "message": "no answers submitted for this content item"
+  }
+}
+```

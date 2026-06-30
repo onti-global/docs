@@ -1,0 +1,80 @@
+---
+title: "assessment-flows-create"
+api: "v1"
+endpoint: "/admin/v1/assessment-flows"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Assessment Flow
+
+Creates a new assessment flow definition. A flow is a reusable questionnaire that can be linked to courses or modules via variant assignment policies. Add questions via the questions endpoint after creation.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Request body
+
+```json
+{
+  "title": "Coaching Style Assessment",
+  "description": "Determines the optimal content variant for each learner."
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `title` | `string` | Yes | Flow title. |
+| `description` | `string` | No | Internal description. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "f3a1...88",
+  "title": "Coaching Style Assessment",
+  "description": "Determines the optimal content variant for each learner.",
+  "version": 1,
+  "created_at": "2026-06-29T12:30:00Z",
+  "updated_at": "2026-06-29T12:30:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Flow id. |
+| `title` | `string` | Flow title. |
+| `description` | `string \| null` | Internal description. |
+| `version` | `integer` | Starts at `1`. Increment via the application when the question set changes shape. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `title` is missing or empty. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "title is required and must be a non-empty string"
+  }
+}
+```

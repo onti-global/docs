@@ -1,0 +1,78 @@
+---
+title: "progress.post"
+api: "v1"
+endpoint: "/v1/progress"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Submit Progress
+
+Records a learner's progress event for a content item. Use `started` when the learner opens an item and `completed` when they finish it. Submitting `started` for an item that is already started is a no-op. Submitting `completed` also sets `started = true` if not already set.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- The learner must be assigned to the variant that contains the content item.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Request body
+
+```json
+{
+  "content_id": "c1...ff",
+  "event": "completed"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `content_id` | `uuid` | Yes | The content item to record progress for. |
+| `event` | `"started" \| "completed"` | Yes | The progress event to record. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "content_id": "c1...ff",
+  "started": true,
+  "completed": true,
+  "completed_at": "2026-06-29T11:20:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `content_id` | `uuid` | The content item id. |
+| `started` | `boolean` | Whether the learner has opened this item. |
+| `completed` | `boolean` | Whether the learner has finished this item. |
+| `completed_at` | `timestamptz \| null` | When `completed` was first set to `true`. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_body` | `content_id` or `event` is missing or invalid. |
+| `403` | `variant_not_assigned` | The learner is not assigned to the variant that contains this content item. |
+| `404` | `content_not_found` | Content item does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "event must be one of: started, completed"
+  }
+}
+```

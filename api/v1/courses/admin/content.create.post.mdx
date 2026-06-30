@@ -1,0 +1,99 @@
+---
+title: "contents-create"
+api: "v1"
+endpoint: "/admin/v1/variants/:id/contents"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Content Item
+
+Adds a new content item to a variant. `type` determines the rendering mode and which storage field must be populated: `url` for media types (`video`, `audio`, `meditation`) and `body` for text types (`html`, `quiz`). Exactly one of `url` or `body` must be provided.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The parent variant id. |
+
+## Request body
+
+```json
+{
+  "type": "video",
+  "title": "Introduction to Emotional Regulation",
+  "url": "https://cdn.example.com/videos/intro-er.mp4",
+  "body": null,
+  "position": 0
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `type` | `"html" \| "video" \| "audio" \| "meditation" \| "quiz"` | Yes | Content type. Controls the rendering mode. |
+| `title` | `string` | Yes | Content item title. |
+| `url` | `string \| null` | Conditional | CDN/streaming URL. Required when `type` is `video`, `audio`, or `meditation`. |
+| `body` | `string \| null` | Conditional | HTML or quiz JSON schema. Required when `type` is `html` or `quiz`. |
+| `position` | `integer` | No | Ascending sort order within the variant. Defaults to `0`. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "c3...jj",
+  "variant_id": "v3...ii",
+  "type": "video",
+  "title": "Introduction to Emotional Regulation",
+  "url": "https://cdn.example.com/videos/intro-er.mp4",
+  "body": null,
+  "position": 0,
+  "created_at": "2026-06-29T12:20:00Z",
+  "updated_at": "2026-06-29T12:20:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Content item id. |
+| `variant_id` | `uuid` | Parent variant id. |
+| `type` | `"html" \| "video" \| "audio" \| "meditation" \| "quiz"` | Content type. |
+| `title` | `string` | Content item title. |
+| `url` | `string \| null` | Media asset URL. |
+| `body` | `string \| null` | HTML markup or quiz JSON schema. |
+| `position` | `integer` | Sort order within the variant. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `type` or `title` is missing; or the wrong content field is populated for the given type. |
+| `404` | `variant_not_found` | Variant does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "url is required for type video"
+  }
+}
+```

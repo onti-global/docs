@@ -21,6 +21,20 @@ title: "schema.sql"
 --        - agent_memories
 --        - onti_packages
 --        - user_products
+--   9. Course content structure
+--        - course_modules
+--        - course_variants
+--        - course_contents
+--        - course_alumni_assignments
+--        - student_progress
+--        - student_answers
+--        - student_insight_memory
+--   10. Assessment flows & variant assignment rules
+--        - assessment_flows
+--        - assessment_questions
+--        - student_assessment_responses
+--        - variant_assignment_policies
+--        - variant_assignment_rules
 --   3. Indexes
 --   4. Row Level Security policies
 --   5. Trigger functions and triggers (updated_at automation)
@@ -1097,5 +1111,565 @@ create policy "product_access: self read"
 
 create trigger product_access_set_timestamps
   before insert or update on product_access
+  for each row execute function set_timestamps();
+
+
+-- =============================================================================
+-- 9. Course content structure
+-- -----------------------------------------------------------------------------
+-- Models the internal structure of a course: modules (ordered sections) →
+-- variants (personalised paths within a module) → contents (atomic items).
+-- Each enrolled learner is assigned exactly one variant per module, giving
+-- every alumnus a unique content sequence. Progress and answers are tracked
+-- at the content level.
+--
+-- Hierarchy:
+--   courses  (existing)
+--     └── course_modules       (ordered sections of a course)
+--           └── course_variants (one or more paths through a module)
+--                 └── course_contents (ordered atomic content items)
+--
+-- Per-learner state:
+--   course_alumni_assignments  maps (user, module) → variant
+--   student_progress           records completion of each content item
+--   student_answers            captures answers for content that requires them
+-- =============================================================================
+
+
+-- ----- enums -----------------------------------------------------------------
+
+-- Discriminates the kind of content a course_contents row represents.
+-- url / body usage per type:
+--   html       - body holds the markup; url is null or links a referenced asset
+--   video      - url points to the CDN/streaming asset; body is null
+--   audio      - url points to the audio file; body is null
+--   meditation - url points to the guided audio/video file; body is null
+--   quiz       - body holds the question JSON schema; url is null
+create type course_content_type as enum ('html', 'video', 'audio', 'meditation', 'quiz');
+
+
+-- ----- course_modules --------------------------------------------------------
+-- An ordered section (chapter) of a course. Learners move through modules
+-- sequentially. Each module offers one or more variants so the backend can
+-- personalise the path for each alumnus.
+--
+-- position - ascending sort order within the parent course. The application
+--            is responsible for keeping positions contiguous.
+
+create table course_modules (
+  id          uuid primary key default gen_random_uuid(),
+  course_id   uuid not null references courses(id) on delete cascade,
+  title       text not null,
+  description text,
+  position    integer not null default 0,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table course_modules enable row level security;
+
+
+-- ----- course_variants -------------------------------------------------------
+-- A named path through a module — an ordered set of content items. A module
+-- must have at least one variant; multiple variants allow the system to assign
+-- different experiences to different learners (A/B or fully personalised).
+
+create table course_variants (
+  id          uuid primary key default gen_random_uuid(),
+  module_id   uuid not null references course_modules(id) on delete cascade,
+  name        text not null,
+  description text,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table course_variants enable row level security;
+
+
+-- ----- course_contents -------------------------------------------------------
+-- An atomic learning item inside a variant, ordered by `position` (ascending).
+-- `type` controls how the frontend renders the item and which storage field
+-- is populated:
+--   html / quiz   → body holds the content; url is typically null.
+--   video / audio
+--   / meditation  → url points to the media asset; body is null.
+
+create table course_contents (
+  id         uuid primary key default gen_random_uuid(),
+  variant_id uuid not null references course_variants(id) on delete cascade,
+  type       course_content_type not null,
+  title      text not null,
+  url        text,
+  body       text,
+  position   integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table course_contents enable row level security;
+
+
+-- ----- course_alumni_assignments ---------------------------------------------
+-- Records which variant a given learner has been assigned for each module.
+-- The unique constraint on (user_id, module_id) guarantees exactly one variant
+-- per learner per module. The backend assigns variants at enrollment time or
+-- lazily as the learner progresses; the application must ensure variant_id
+-- references a variant that belongs to the specified module_id.
+
+create table course_alumni_assignments (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  module_id   uuid not null references course_modules(id) on delete cascade,
+  variant_id  uuid not null references course_variants(id) on delete cascade,
+  assigned_at timestamptz not null default now(),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+
+  unique (user_id, module_id)
+);
+
+alter table course_alumni_assignments enable row level security;
+
+
+-- ----- student_progress ------------------------------------------------------
+-- One row per (learner, content item). Inserted when a learner opens a piece
+-- of content; `completed_at` is stamped when they finish it. A null
+-- `completed_at` means the content has been started but not yet completed.
+
+create table student_progress (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  content_id   uuid not null references course_contents(id) on delete cascade,
+  completed_at timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  unique (user_id, content_id)
+);
+
+alter table student_progress enable row level security;
+
+
+-- ----- student_answers -------------------------------------------------------
+-- Captures a learner's answers for content items that require a response
+-- (type = 'quiz' or any other answer-bearing type). `answers` is a JSONB blob
+-- whose shape is owned by the application; the SQL layer does not inspect its
+-- keys. One submission per (learner, content) — re-submissions update the row
+-- in place, preserving the latest answers.
+
+create table student_answers (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  content_id   uuid not null references course_contents(id) on delete cascade,
+  answers      jsonb not null default '{}'::jsonb,
+  submitted_at timestamptz not null default now(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  unique (user_id, content_id)
+);
+
+alter table student_answers enable row level security;
+
+
+-- ----- student_insight_memory ------------------------------------------------
+-- A timestamped insight or milestone marker generated during a learner's
+-- interaction with a specific piece of content. Unlike student_progress (which
+-- is a binary started/completed flag) this table captures *what* was notable:
+-- a realisation, a struggle, a key question, or any signal the system or agent
+-- deems worth remembering.
+--
+-- Multiple insights can be recorded for the same (user, content) pair — there
+-- is no unique constraint. The MCP server reads rows with status = 'active'
+-- to surface relevant context to the agent without a separate join into the
+-- full content hierarchy.
+--
+-- status reuses agent_memory_status (active / stale / archived) so the same
+-- MCP query patterns that filter agent_memories work here unchanged.
+-- insight  - free-form natural-language description the agent reads.
+-- data     - JSONB structured metadata (tags, scores, context snippets, etc.).
+--            Shape is owned by the application; do NOT branch SQL on its keys.
+
+create table student_insight_memory (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  content_id uuid not null references course_contents(id) on delete cascade,
+  insight    text not null,
+  data       jsonb not null default '{}'::jsonb,
+  status     agent_memory_status not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table student_insight_memory enable row level security;
+
+
+-- ----- indexes ---------------------------------------------------------------
+
+-- Ordering modules within a course.
+create index course_modules_course_id_idx       on course_modules (course_id);
+create index course_modules_course_position_idx on course_modules (course_id, position);
+
+-- Listing variants for a module.
+create index course_variants_module_id_idx on course_variants (module_id);
+
+-- Listing contents in order within a variant.
+create index course_contents_variant_id_idx       on course_contents (variant_id);
+create index course_contents_variant_position_idx on course_contents (variant_id, position);
+
+-- "What variants is this learner assigned to?"
+create index course_alumni_assignments_user_id_idx    on course_alumni_assignments (user_id);
+-- "Who is assigned this variant?" (admin / analytics view)
+create index course_alumni_assignments_variant_id_idx on course_alumni_assignments (variant_id);
+
+-- "What has this learner started / completed?" (hot path for progress dashboard)
+create index student_progress_user_id_idx      on student_progress (user_id);
+create index student_progress_completed_at_idx on student_progress (user_id, completed_at)
+  where completed_at is not null;
+
+-- "What answers has this learner submitted?"
+create index student_answers_user_id_idx on student_answers (user_id);
+
+-- "What active insights does this learner have?" (MCP read path — mirrors
+-- agent_memories_status_idx query pattern).
+create index student_insight_memory_user_id_idx on student_insight_memory (user_id);
+create index student_insight_memory_user_status_idx
+  on student_insight_memory (user_id, status);
+-- "Which insights came from this content item?"
+create index student_insight_memory_content_id_idx on student_insight_memory (content_id);
+
+
+-- ----- RLS policies ----------------------------------------------------------
+
+-- Course structure is readable by any authenticated user. Writes are
+-- backend-only via service_role.
+
+create policy "course_modules: read all"
+  on course_modules for select
+  to authenticated
+  using (true);
+
+create policy "course_variants: read all"
+  on course_variants for select
+  to authenticated
+  using (true);
+
+create policy "course_contents: read all"
+  on course_contents for select
+  to authenticated
+  using (true);
+
+-- Learner-scoped tables: read own rows only. Assignment writes are
+-- backend-only; progress and answers are written by the learner directly.
+
+create policy "course_alumni_assignments: self read"
+  on course_alumni_assignments for select
+  using (auth.uid() = user_id);
+
+create policy "student_progress: self read"
+  on student_progress for select
+  using (auth.uid() = user_id);
+
+create policy "student_progress: self insert"
+  on student_progress for insert
+  with check (auth.uid() = user_id);
+
+create policy "student_progress: self update"
+  on student_progress for update
+  using (auth.uid() = user_id);
+
+create policy "student_answers: self read"
+  on student_answers for select
+  using (auth.uid() = user_id);
+
+create policy "student_answers: self insert"
+  on student_answers for insert
+  with check (auth.uid() = user_id);
+
+create policy "student_answers: self update"
+  on student_answers for update
+  using (auth.uid() = user_id);
+
+-- Insights are written by the backend / MCP server (service_role). The learner
+-- can read their own insights so the frontend can surface them if needed.
+create policy "student_insight_memory: self read"
+  on student_insight_memory for select
+  using (auth.uid() = user_id);
+
+
+-- ----- triggers --------------------------------------------------------------
+
+create trigger course_modules_set_timestamps
+  before insert or update on course_modules
+  for each row execute function set_timestamps();
+
+create trigger course_variants_set_timestamps
+  before insert or update on course_variants
+  for each row execute function set_timestamps();
+
+create trigger course_contents_set_timestamps
+  before insert or update on course_contents
+  for each row execute function set_timestamps();
+
+create trigger course_alumni_assignments_set_timestamps
+  before insert or update on course_alumni_assignments
+  for each row execute function set_timestamps();
+
+create trigger student_progress_set_timestamps
+  before insert or update on student_progress
+  for each row execute function set_timestamps();
+
+create trigger student_answers_set_timestamps
+  before insert or update on student_answers
+  for each row execute function set_timestamps();
+
+create trigger student_insight_memory_set_timestamps
+  before insert or update on student_insight_memory
+  for each row execute function set_timestamps();
+
+
+-- =============================================================================
+-- 10. Assessment flows & variant assignment rules
+-- -----------------------------------------------------------------------------
+-- Enables structured quizzes or onboarding forms to run at configurable points
+-- in a course (before the course, before a module, etc.) and automatically
+-- assign the learner to the correct course variant based on their answers.
+--
+-- The existing course_alumni_assignments table remains the destination for all
+-- variant assignments; this section provides the machinery to drive it.
+--
+-- Flow:
+--   1. A variant_assignment_policy is defined for a course or module, pointing
+--      at an assessment_flow and declaring when it fires (trigger_point).
+--   2. The learner completes the flow → one student_assessment_responses row.
+--   3. The backend evaluates variant_assignment_rules in priority order.
+--   4. The first rule whose conditions match → variant is assigned via
+--      course_alumni_assignments. default_variant_id is the fallback.
+--
+-- Conditions are stored as JSONB inside variant_assignment_rules (same
+-- app-owns-shape convention as student_answers.answers). The SQL layer does
+-- not introspect condition keys.
+-- =============================================================================
+
+
+-- ----- enums -----------------------------------------------------------------
+
+-- Question types inside an assessment flow.
+create type assessment_question_type as enum (
+  'single_choice',
+  'multiple_choice',
+  'scale',
+  'text',
+  'boolean'
+);
+
+-- When in the learner's journey to trigger the assessment.
+create type policy_trigger_point as enum (
+  'before_course',
+  'before_module',
+  'after_module',
+  'standalone'
+);
+
+-- Whether all conditions in a rule must pass (AND) or any one is enough (OR).
+create type rule_match_mode as enum ('all', 'any');
+
+
+-- ----- assessment_flows ------------------------------------------------------
+-- A standalone questionnaire definition. Reusable across courses and modules —
+-- the policy (below) is what binds a flow to a specific context.
+--
+-- version - increment in the application whenever the question set changes
+--           shape, so existing student_assessment_responses remain interpretable.
+
+create table assessment_flows (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  description text,
+  version     integer not null default 1,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table assessment_flows enable row level security;
+
+
+-- ----- assessment_questions --------------------------------------------------
+-- Ordered questions within a flow.
+--
+-- options  - JSONB array of {value, label} objects for choice types; null for
+--            scale / text / boolean questions.
+-- required - whether the learner must answer before submitting the flow.
+
+create table assessment_questions (
+  id         uuid primary key default gen_random_uuid(),
+  flow_id    uuid not null references assessment_flows(id) on delete cascade,
+  type       assessment_question_type not null,
+  question   text not null,
+  options    jsonb,
+  position   integer not null default 0,
+  required   boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table assessment_questions enable row level security;
+
+
+-- ----- student_assessment_responses ------------------------------------------
+-- One row per (user, flow). Answers are stored as a JSONB object keyed by
+-- question_id, mirroring the course_onboardings.answers pattern. Re-submissions
+-- update the row in place; completed_at is stamped when the learner finishes.
+
+create table student_assessment_responses (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  flow_id      uuid not null references assessment_flows(id) on delete cascade,
+  answers      jsonb not null default '{}'::jsonb,
+  completed_at timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  unique (user_id, flow_id)
+);
+
+alter table student_assessment_responses enable row level security;
+
+
+-- ----- variant_assignment_policies -------------------------------------------
+-- Binds an assessment flow to a course or module context, declares when it
+-- fires, and sets a default fallback variant for when no rule matches.
+--
+-- The check constraint ensures the trigger_point is coherent with the context
+-- foreign keys: course-level triggers require course_id; module-level triggers
+-- require module_id; standalone needs neither.
+
+create table variant_assignment_policies (
+  id                  uuid primary key default gen_random_uuid(),
+  name                text not null,
+  assessment_flow_id  uuid not null references assessment_flows(id) on delete restrict,
+  course_id           uuid references courses(id) on delete cascade,
+  module_id           uuid references course_modules(id) on delete cascade,
+  trigger_point       policy_trigger_point not null,
+  default_variant_id  uuid references course_variants(id) on delete set null,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now(),
+
+  constraint variant_assignment_policies_context_check check (
+    (trigger_point = 'standalone') or
+    (trigger_point = 'before_course' and course_id is not null) or
+    (trigger_point in ('before_module', 'after_module') and module_id is not null)
+  )
+);
+
+alter table variant_assignment_policies enable row level security;
+
+
+-- ----- variant_assignment_rules ----------------------------------------------
+-- Priority-ordered rules within a policy. The backend evaluates rules in
+-- ascending priority order; the first rule whose conditions pass determines
+-- the variant assigned to the learner.
+--
+-- conditions - JSONB array of condition objects. Shape is owned by the
+--              application; the SQL layer does not inspect keys. Each object
+--              is expected to carry: question_id, operator, expected.
+--              Supported operators: eq | neq | in | not_in | gte | lte.
+-- match_mode - 'all' = every condition must pass (AND);
+--              'any' = at least one condition must pass (OR).
+
+create table variant_assignment_rules (
+  id                uuid primary key default gen_random_uuid(),
+  policy_id         uuid not null references variant_assignment_policies(id) on delete cascade,
+  name              text not null,
+  target_variant_id uuid not null references course_variants(id) on delete cascade,
+  priority          integer not null default 0,
+  match_mode        rule_match_mode not null default 'all',
+  conditions        jsonb not null default '[]'::jsonb,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+alter table variant_assignment_rules enable row level security;
+
+
+-- ----- indexes ---------------------------------------------------------------
+
+-- Question ordering within a flow.
+create index assessment_questions_flow_position_idx
+  on assessment_questions (flow_id, position);
+
+-- "Has this user completed this flow?" (policy trigger check).
+create index student_assessment_responses_user_flow_idx
+  on student_assessment_responses (user_id, flow_id);
+
+-- Policy lookup at trigger time.
+create index variant_assignment_policies_course_id_idx
+  on variant_assignment_policies (course_id) where course_id is not null;
+create index variant_assignment_policies_module_id_idx
+  on variant_assignment_policies (module_id) where module_id is not null;
+
+-- Rule evaluation order.
+create index variant_assignment_rules_policy_priority_idx
+  on variant_assignment_rules (policy_id, priority);
+
+
+-- ----- RLS policies ----------------------------------------------------------
+
+-- Assessment content is readable by any authenticated user so the app can
+-- present the flow to learners. Writes are backend-only via service_role.
+
+create policy "assessment_flows: read all"
+  on assessment_flows for select
+  to authenticated
+  using (true);
+
+create policy "assessment_questions: read all"
+  on assessment_questions for select
+  to authenticated
+  using (true);
+
+-- Learners can read and submit their own responses.
+
+create policy "student_assessment_responses: self read"
+  on student_assessment_responses for select
+  using (auth.uid() = user_id);
+
+create policy "student_assessment_responses: self insert"
+  on student_assessment_responses for insert
+  with check (auth.uid() = user_id);
+
+create policy "student_assessment_responses: self update"
+  on student_assessment_responses for update
+  using (auth.uid() = user_id);
+
+-- Policies are readable so the app knows which flow to trigger at each point.
+-- Rules are backend-only — learners must not see the assignment logic.
+
+create policy "variant_assignment_policies: read all"
+  on variant_assignment_policies for select
+  to authenticated
+  using (true);
+
+
+-- ----- triggers --------------------------------------------------------------
+
+create trigger assessment_flows_set_timestamps
+  before insert or update on assessment_flows
+  for each row execute function set_timestamps();
+
+create trigger assessment_questions_set_timestamps
+  before insert or update on assessment_questions
+  for each row execute function set_timestamps();
+
+create trigger student_assessment_responses_set_timestamps
+  before insert or update on student_assessment_responses
+  for each row execute function set_timestamps();
+
+create trigger variant_assignment_policies_set_timestamps
+  before insert or update on variant_assignment_policies
+  for each row execute function set_timestamps();
+
+create trigger variant_assignment_rules_set_timestamps
+  before insert or update on variant_assignment_rules
   for each row execute function set_timestamps();
 ```

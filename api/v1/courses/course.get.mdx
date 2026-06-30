@@ -1,0 +1,86 @@
+---
+title: "course.get"
+api: "v1"
+endpoint: "/v1/courses"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Course Catalog
+
+Returns all published courses available to the authenticated learner. Draft and archived courses are never returned.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Results are scoped to `status = "published"` via RLS; no further filtering by user identity.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | `integer` | No | Maximum number of results per page. Defaults to `20`. Max `100`. |
+| `cursor` | `string` | No | Opaque pagination cursor returned by a previous response. Omit for the first page. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "1aa2...d4",
+      "title": "Foundations of Coaching",
+      "description": "An introduction to core coaching frameworks.",
+      "status": "published",
+      "created_at": "2026-01-15T09:00:00Z",
+      "updated_at": "2026-01-15T09:00:00Z"
+    }
+  ],
+  "cursor": "eyJpZCI6Ii4uLiJ9"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Course[]` | Ordered list of published courses. |
+| `cursor` | `string \| null` | Pass as `cursor` in the next request to fetch the next page. `null` when there are no more results. |
+
+### Course object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Course id. |
+| `title` | `string` | Course title. |
+| `description` | `string \| null` | Optional marketing description. |
+| `status` | `"published"` | Always `"published"` in catalog responses. |
+| `created_at` | `timestamptz` | When the course was created. |
+| `updated_at` | `timestamptz` | When the course was last modified. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_query_param` | `limit` is not a positive integer, or `cursor` is malformed. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_query_param",
+    "message": "limit must be a positive integer no greater than 100"
+  }
+}
+```

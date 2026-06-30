@@ -1,0 +1,106 @@
+---
+title: "course.id.progress.get"
+api: "v1"
+endpoint: "/v1/courses/:id/progress"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Course Progress
+
+Returns the learner's progress summary for a course. Includes overall completion rate, a per-module breakdown, and individual content item states for the learner's assigned variants. Completion rates are expressed as decimals (e.g. `0.5` = 50%).
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- The learner must be enrolled in the course.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "course_id": "1aa2...d4",
+  "completion_rate": 0.5,
+  "modules": [
+    {
+      "module_id": "m1...cc",
+      "assigned_variant_id": "v2...dd",
+      "completion_rate": 1.0,
+      "contents": [
+        {
+          "content_id": "c1...ff",
+          "started": true,
+          "completed": true,
+          "completed_at": "2026-06-28T09:15:00Z"
+        }
+      ]
+    },
+    {
+      "module_id": "m2...ee",
+      "assigned_variant_id": null,
+      "completion_rate": 0.0,
+      "contents": []
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | The course id. |
+| `completion_rate` | `decimal` | Overall course completion rate (completed items ÷ total items across all assigned variants). Range `0.0`–`1.0`. |
+| `modules` | `ModuleProgress[]` | Per-module progress, in ascending module position order. |
+
+### ModuleProgress object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `module_id` | `uuid` | Module id. |
+| `assigned_variant_id` | `uuid \| null` | The variant assigned to this learner. `null` if not yet assigned. |
+| `completion_rate` | `decimal` | Module completion rate (completed items ÷ items in assigned variant). `0.0` when `assigned_variant_id` is `null`. |
+| `contents` | `ContentProgress[]` | Per-item progress for the assigned variant. Empty when `assigned_variant_id` is `null`. |
+
+### ContentProgress object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `content_id` | `uuid` | Content item id. |
+| `started` | `boolean` | Whether the learner has opened this item. |
+| `completed` | `boolean` | Whether the learner has finished this item. |
+| `completed_at` | `timestamptz \| null` | When completion was recorded. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `not_enrolled` | The learner is not enrolled in this course. |
+| `404` | `course_not_found` | Course does not exist or is not published. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_enrolled",
+    "message": "learner is not enrolled in this course"
+  }
+}
+```

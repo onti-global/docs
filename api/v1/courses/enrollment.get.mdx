@@ -1,0 +1,87 @@
+---
+title: "enrollment.get"
+api: "v1"
+endpoint: "/v1/enrollments"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Enrollments
+
+Returns all course enrollments for the authenticated learner, optionally filtered by status.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Returns only enrollments belonging to the authenticated user (enforced by RLS).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `"active" \| "completed" \| "dropped"` | No | Filter by enrollment status. Omit to return all statuses. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "e9f0...12",
+      "course_id": "1aa2...d4",
+      "status": "active",
+      "enrolled_at": "2026-06-29T10:00:00Z",
+      "completed_at": null,
+      "course": {
+        "id": "1aa2...d4",
+        "title": "Foundations of Coaching",
+        "status": "published"
+      }
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Enrollment[]` | All enrollments matching the filter. |
+
+### Enrollment object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Enrollment id. |
+| `course_id` | `uuid` | Course the learner is enrolled in. |
+| `status` | `"active" \| "completed" \| "dropped"` | Current enrollment lifecycle state. |
+| `enrolled_at` | `timestamptz` | When the learner first enrolled. |
+| `completed_at` | `timestamptz \| null` | Set when `status = "completed"`. |
+| `course` | `object` | Hydrated course snapshot (id, title, status). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_query_param` | `status` is not one of the allowed enum values. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_query_param",
+    "message": "status must be one of: active, completed, dropped"
+  }
+}
+```

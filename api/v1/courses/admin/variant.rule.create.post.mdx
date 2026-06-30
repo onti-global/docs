@@ -1,0 +1,108 @@
+---
+title: "variant-rules-create"
+api: "v1"
+endpoint: "/admin/v1/variant-policies/:id/rules"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Assignment Rule
+
+Adds a rule to a variant assignment policy. Rules are evaluated in ascending `priority` order; the first rule whose conditions pass assigns the learner to `target_variant_id`. If no rule matches, the policy's `default_variant_id` is used.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The variant assignment policy id. |
+
+## Request body
+
+```json
+{
+  "name": "Experienced learners → High-Autonomy",
+  "target_variant_id": "v3...ii",
+  "priority": 10,
+  "match_mode": "all",
+  "conditions": [
+    {
+      "question_id": "q1...aa",
+      "operator": "in",
+      "expected": ["intermediate", "advanced"]
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | Yes | Internal rule name. |
+| `target_variant_id` | `uuid` | Yes | Variant to assign when this rule matches. |
+| `priority` | `integer` | No | Ascending evaluation order. Lower number = evaluated first. Defaults to `0`. |
+| `match_mode` | `"all" \| "any"` | No | `"all"` = every condition must pass (AND). `"any"` = at least one must pass (OR). Defaults to `"all"`. |
+| `conditions` | `Condition[]` | Yes | One or more conditions to evaluate against the learner's assessment answers. |
+
+### Condition object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `question_id` | `uuid` | Yes | The assessment question whose answer to evaluate. |
+| `operator` | `"eq" \| "neq" \| "in" \| "not_in" \| "gte" \| "lte"` | Yes | Comparison operator. |
+| `expected` | `string \| string[] \| integer` | Yes | Value(s) to compare against. Use `string[]` for `in` and `not_in`. Use `integer` for `gte` and `lte` on `scale` questions. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "r1...ll",
+  "policy_id": "p1...kk",
+  "name": "Experienced learners → High-Autonomy",
+  "target_variant_id": "v3...ii",
+  "priority": 10,
+  "match_mode": "all",
+  "conditions": [
+    {
+      "question_id": "q1...aa",
+      "operator": "in",
+      "expected": ["intermediate", "advanced"]
+    }
+  ],
+  "created_at": "2026-06-29T12:50:00Z",
+  "updated_at": "2026-06-29T12:50:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `name`, `target_variant_id`, or `conditions` is missing; operator is unrecognised; `expected` shape doesn't match operator. |
+| `404` | `policy_not_found` | Variant assignment policy does not exist. |
+| `404` | `variant_not_found` | Target variant does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "expected must be an array for operator in"
+  }
+}
+```

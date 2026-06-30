@@ -1,0 +1,110 @@
+---
+title: "assessment.id.get"
+api: "v1"
+endpoint: "/v1/assessments/:id"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Assessment
+
+Returns an assessment flow definition — its title, version, and ordered questions — along with the authenticated learner's existing response if one exists.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The assessment flow id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "id": "f3a1...88",
+  "title": "Coaching Style Assessment",
+  "version": 2,
+  "questions": [
+    {
+      "id": "q1...aa",
+      "type": "single_choice",
+      "question": "When a client is stuck, your first instinct is to…",
+      "options": [
+        { "value": "ask_questions", "label": "Ask open-ended questions" },
+        { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+        { "value": "share_experience", "label": "Share a relevant personal experience" }
+      ],
+      "position": 0,
+      "required": true
+    },
+    {
+      "id": "q2...bb",
+      "type": "scale",
+      "question": "Rate your comfort with silence in sessions (1 = very uncomfortable, 5 = very comfortable).",
+      "options": null,
+      "position": 1,
+      "required": true
+    }
+  ],
+  "response": {
+    "answers": {
+      "q1...aa": "ask_questions",
+      "q2...bb": 4
+    },
+    "completed_at": "2026-06-20T14:30:00Z"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Assessment flow id. |
+| `title` | `string` | Flow title. |
+| `version` | `integer` | Incremented whenever the question set changes shape. |
+| `questions` | `Question[]` | Ordered list of questions. |
+| `response` | `object \| null` | The learner's existing response. `null` if not yet submitted. |
+| `response.answers` | `object` | Map of `question_id → answer_value`. |
+| `response.completed_at` | `timestamptz \| null` | When the learner last submitted. |
+
+### Question object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Question id. Used as the key in `response.answers`. |
+| `type` | `"single_choice" \| "multiple_choice" \| "scale" \| "text" \| "boolean"` | Answer format. |
+| `question` | `string` | Question text. |
+| `options` | `Option[] \| null` | Non-null for `single_choice` and `multiple_choice`. |
+| `position` | `integer` | Ascending display order. |
+| `required` | `boolean` | Whether an answer is mandatory before submission. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `404` | `not_found` | Assessment flow does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "assessment flow not found"
+  }
+}
+```

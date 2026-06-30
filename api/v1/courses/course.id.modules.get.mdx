@@ -1,0 +1,95 @@
+---
+title: "course.id.modules.get"
+api: "v1"
+endpoint: "/v1/courses/:id/modules"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Course Modules
+
+Returns the ordered module list for a course along with the learner's variant assignment for each module (if already assigned). Used by the course player to build the navigation sidebar.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- The learner must be enrolled in the course.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "course_id": "1aa2...d4",
+  "items": [
+    {
+      "id": "m1...cc",
+      "title": "Module 1 — The Coaching Mindset",
+      "description": "Foundations of a growth-oriented coaching approach.",
+      "position": 0,
+      "assigned_variant_id": "v2...dd"
+    },
+    {
+      "id": "m2...ee",
+      "title": "Module 2 — Active Listening",
+      "description": null,
+      "position": 1,
+      "assigned_variant_id": null
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | The parent course id. |
+| `items` | `Module[]` | Modules in ascending `position` order. |
+
+### Module object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Module id. |
+| `title` | `string` | Module title. |
+| `description` | `string \| null` | Optional module description. |
+| `position` | `integer` | Ascending sort order within the course. |
+| `assigned_variant_id` | `uuid \| null` | The variant assigned to this learner for this module. `null` if not yet assigned (e.g. assessment has not been submitted). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `not_enrolled` | The learner is not enrolled in this course. |
+| `404` | `course_not_found` | Course does not exist or is not published. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_enrolled",
+    "message": "learner is not enrolled in this course"
+  }
+}
+```
+
+## Notes
+
+- A `null` `assigned_variant_id` means the learner cannot yet access the module's content. The app should prompt them to complete any pending assessment or onboarding first.

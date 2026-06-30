@@ -1,0 +1,82 @@
+---
+title: "courses-update"
+api: "v1"
+endpoint: "/admin/v1/courses/:id"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Update Course
+
+Updates a course's title, description, or lifecycle status. Transitioning to `published` makes the course visible to learners. Transitioning to `archived` hides it from the catalog while preserving all existing enrollments.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Request body
+
+All fields are optional. Only provided fields are updated.
+
+```json
+{
+  "title": "Advanced Facilitation — Revised",
+  "description": "Updated description.",
+  "status": "published"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `title` | `string` | No | New course title. Must be non-empty if provided. |
+| `description` | `string \| null` | No | New description. Pass `null` to clear it. |
+| `status` | `"draft" \| "published" \| "archived"` | No | New lifecycle status. |
+
+## Response body
+
+`200 OK` — returns the updated course.
+
+```json
+{
+  "id": "3cc4...e9",
+  "title": "Advanced Facilitation — Revised",
+  "description": "Updated description.",
+  "status": "published",
+  "created_at": "2026-06-29T12:00:00Z",
+  "updated_at": "2026-06-29T13:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | A provided field value is invalid (e.g. empty title, unrecognised status). |
+| `404` | `not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "status must be one of: draft, published, archived"
+  }
+}
+```

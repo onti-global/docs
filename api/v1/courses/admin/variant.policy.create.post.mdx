@@ -1,0 +1,94 @@
+---
+title: "variant-policies-create"
+api: "v1"
+endpoint: "/admin/v1/variant-policies"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Variant Assignment Policy
+
+Creates a policy that binds an assessment flow to a course or module context and declares when the assessment fires. The policy is the engine that drives automatic variant assignment: when a learner completes the assessment, the backend evaluates the policy's rules in priority order and assigns the matching variant.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Request body
+
+```json
+{
+  "name": "Module 1 Variant Assignment",
+  "assessment_flow_id": "f3a1...88",
+  "course_id": null,
+  "module_id": "m1...cc",
+  "trigger_point": "before_module",
+  "default_variant_id": "v2...dd"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | Yes | Internal policy name. |
+| `assessment_flow_id` | `uuid` | Yes | The assessment flow to trigger. |
+| `course_id` | `uuid \| null` | Conditional | Required when `trigger_point = "before_course"`. |
+| `module_id` | `uuid \| null` | Conditional | Required when `trigger_point` is `"before_module"` or `"after_module"`. |
+| `trigger_point` | `"before_course" \| "before_module" \| "after_module" \| "standalone"` | Yes | When in the learner's journey to trigger the assessment. |
+| `default_variant_id` | `uuid \| null` | No | Fallback variant assigned when no rule matches. |
+
+### Trigger point context rules
+
+| `trigger_point` | `course_id` | `module_id` |
+| --- | --- | --- |
+| `before_course` | Required | Must be `null` |
+| `before_module` | Must be `null` | Required |
+| `after_module` | Must be `null` | Required |
+| `standalone` | Must be `null` | Must be `null` |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "p1...kk",
+  "name": "Module 1 Variant Assignment",
+  "assessment_flow_id": "f3a1...88",
+  "course_id": null,
+  "module_id": "m1...cc",
+  "trigger_point": "before_module",
+  "default_variant_id": "v2...dd",
+  "created_at": "2026-06-29T12:45:00Z",
+  "updated_at": "2026-06-29T12:45:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | Missing required fields or context foreign keys don't match the trigger point rules. |
+| `404` | `flow_not_found` | Assessment flow does not exist. |
+| `404` | `course_not_found` | Course does not exist. |
+| `404` | `module_not_found` | Module does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "module_id is required when trigger_point is before_module"
+  }
+}
+```

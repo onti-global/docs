@@ -1,0 +1,96 @@
+---
+title: "assessment-questions-update"
+api: "v1"
+endpoint: "/admin/v1/assessment-flows/:id/questions/:qid"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Update Assessment Question
+
+Updates a question within an assessment flow. All fields are optional — only provided fields are updated. If the question set changes shape in a way that makes existing `student_assessment_responses` uninterpretable, increment the flow's `version` via a separate update to signal that prior responses are no longer comparable.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The assessment flow id. |
+| `qid` | `uuid` | The question id. |
+
+## Request body
+
+```json
+{
+  "question": "Updated question text.",
+  "options": [
+    { "value": "ask_questions", "label": "Ask open-ended questions" },
+    { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+    { "value": "share_experience", "label": "Share a relevant personal experience" },
+    { "value": "listen_first", "label": "Just listen without interrupting" }
+  ],
+  "position": 1,
+  "required": false
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `question` | `string` | No | New question text. |
+| `options` | `Option[] \| null` | No | Replacement options list. Replaces the entire existing options array. |
+| `position` | `integer` | No | New sort order. |
+| `required` | `boolean` | No | New required flag. |
+
+## Response body
+
+`200 OK` — returns the full updated question.
+
+```json
+{
+  "id": "q1...aa",
+  "flow_id": "f3a1...88",
+  "type": "single_choice",
+  "question": "Updated question text.",
+  "options": [
+    { "value": "ask_questions", "label": "Ask open-ended questions" },
+    { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+    { "value": "share_experience", "label": "Share a relevant personal experience" },
+    { "value": "listen_first", "label": "Just listen without interrupting" }
+  ],
+  "position": 1,
+  "required": false,
+  "created_at": "2026-06-29T12:35:00Z",
+  "updated_at": "2026-06-29T13:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | A provided field value is invalid. |
+| `404` | `not_found` | Flow or question does not exist, or question does not belong to the flow. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "question not found in this assessment flow"
+  }
+}
+```
