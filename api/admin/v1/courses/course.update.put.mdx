@@ -14,6 +14,7 @@ Updates a course's title, description, or lifecycle status. Transitioning to `pu
 ## Authentication
 
 - Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
 

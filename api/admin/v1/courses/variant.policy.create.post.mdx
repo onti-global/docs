@@ -14,6 +14,7 @@ Creates a policy that binds an assessment flow to a course or module context and
 ## Authentication
 
 - Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
 

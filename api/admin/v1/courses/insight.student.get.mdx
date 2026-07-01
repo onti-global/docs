@@ -1,19 +1,20 @@
 ---
-title: "insights-by-content"
+title: "insights-by-student"
 api: "v1"
-endpoint: "/admin/v1/contents/:id/insights"
+endpoint: "/admin/v1/students/:id/insights"
 method: "get"
 client: "admin"
 tag: "api"
 ---
 
-# GET Content Insights
+# GET Student Insights
 
-Returns all insight memory records generated from a specific content item, across all learners. Useful for identifying content that consistently triggers confusion, breakthroughs, or strong emotional responses.
+Returns all insight memory records generated for a learner across all content interactions. Used by coaches and admins to understand a learner's patterns, struggles, and breakthroughs. Only `status = "active"` records are returned by default.
 
 ## Authentication
 
 - Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
 
@@ -26,13 +27,14 @@ Returns all insight memory records generated from a specific content item, acros
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `id` | `uuid` | The content item id. |
+| `id` | `uuid` | The learner's user id. |
 
 ## Query parameters
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `status` | `"active" \| "stale" \| "archived"` | No | Filter by memory status. Defaults to `"active"`. |
+| `content_id` | `uuid` | No | Filter to insights from a specific content item. |
 | `limit` | `integer` | No | Max results per page. Defaults to `50`. Max `200`. |
 | `cursor` | `string` | No | Pagination cursor from a previous response. |
 
@@ -44,17 +46,17 @@ Returns all insight memory records generated from a specific content item, acros
 {
   "items": [
     {
-      "id": "i2...oo",
+      "id": "i1...nn",
       "user_id": "9c0a...77",
       "content_id": "c1...ff",
-      "insight": "Learner showed strong resonance with the concept of presence — paused the video twice to journal.",
+      "insight": "The learner expressed difficulty separating their own emotional state from the client's — a key coaching blind spot to revisit.",
       "data": {
-        "tags": ["presence", "engagement"],
-        "confidence": 0.92
+        "tags": ["emotional_regulation", "projection"],
+        "confidence": 0.85
       },
       "status": "active",
-      "created_at": "2026-06-28T10:00:00Z",
-      "updated_at": "2026-06-28T10:00:00Z"
+      "created_at": "2026-06-28T09:20:00Z",
+      "updated_at": "2026-06-28T09:20:00Z"
     }
   ],
   "cursor": null
@@ -65,7 +67,7 @@ Returns all insight memory records generated from a specific content item, acros
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `items` | `Insight[]` | Insight records from this content item. |
+| `items` | `Insight[]` | Insight memory records matching the filter. |
 | `cursor` | `string \| null` | Pagination cursor. `null` when no more results. |
 
 ### Insight object
@@ -76,7 +78,7 @@ Returns all insight memory records generated from a specific content item, acros
 | `user_id` | `uuid` | Learner user id. |
 | `content_id` | `uuid` | The content item that generated this insight. |
 | `insight` | `string` | Free-form natural-language description. |
-| `data` | `object` | Structured metadata (tags, confidence, etc.). Shape is application-defined. |
+| `data` | `object` | Structured metadata (tags, scores, etc.). Shape is application-defined. |
 | `status` | `"active" \| "stale" \| "archived"` | Memory lifecycle state. |
 | `created_at` | `timestamptz` | When the insight was recorded. |
 | `updated_at` | `timestamptz` | Row last-modified timestamp. |
@@ -88,18 +90,18 @@ Returns all insight memory records generated from a specific content item, acros
 | `401` | `unauthenticated` | Missing or invalid JWT. |
 | `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
 | `400` | `invalid_query_param` | `status` is not a valid enum value. |
-| `404` | `content_not_found` | Content item does not exist. |
+| `404` | `user_not_found` | No user with that id exists. |
 | `500` | `internal_error` | Unexpected database failure. |
 
 ```json
 {
   "error": {
-    "code": "content_not_found",
-    "message": "content item not found"
+    "code": "invalid_query_param",
+    "message": "status must be one of: active, stale, archived"
   }
 }
 ```
 
 ## Notes
 
-- `data.confidence` is a decimal in the range `0.0`–`1.0` (e.g. `0.92` = 92% confidence). Never a percentage string.
+- `data.confidence` is a decimal in the range `0.0`–`1.0` (e.g. `0.85` = 85% confidence). Never a percentage string.

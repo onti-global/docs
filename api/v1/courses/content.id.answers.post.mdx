@@ -14,6 +14,7 @@ Submits or updates the learner's answers for a quiz or interactive content item.
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - The learner must be assigned to the variant that contains this content item.
 
 ## Headers

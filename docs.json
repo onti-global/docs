@@ -286,50 +286,50 @@
                   {
                     "group": "courses — course builder",
                     "pages": [
-                      "api/v1/courses/admin/course.create.post",
-                      "api/v1/courses/admin/course.update.put",
-                      "api/v1/courses/admin/module.create.post",
-                      "api/v1/courses/admin/variant.create.post",
-                      "api/v1/courses/admin/content.create.post",
-                      "api/v1/courses/admin/content.update.put"
+                      "api/admin/v1/courses/course.create.post",
+                      "api/admin/v1/courses/course.update.put",
+                      "api/admin/v1/courses/module.create.post",
+                      "api/admin/v1/courses/variant.create.post",
+                      "api/admin/v1/courses/content.create.post",
+                      "api/admin/v1/courses/content.update.put"
                     ]
                   },
                   {
                     "group": "courses — enrollment manager",
                     "pages": [
-                      "api/v1/courses/admin/enrollment.list.get",
-                      "api/v1/courses/admin/enrollment.create.post",
-                      "api/v1/courses/admin/enrollment.update.patch"
+                      "api/admin/v1/courses/enrollment.list.get",
+                      "api/admin/v1/courses/enrollment.create.post",
+                      "api/admin/v1/courses/enrollment.update.patch"
                     ]
                   },
                   {
                     "group": "courses — assessment builder",
                     "pages": [
-                      "api/v1/courses/admin/assessment.flow.create.post",
-                      "api/v1/courses/admin/assessment.question.create.post",
-                      "api/v1/courses/admin/assessment.question.update.put"
+                      "api/admin/v1/courses/assessment.flow.create.post",
+                      "api/admin/v1/courses/assessment.question.create.post",
+                      "api/admin/v1/courses/assessment.question.update.put"
                     ]
                   },
                   {
                     "group": "courses — assignment rules",
                     "pages": [
-                      "api/v1/courses/admin/variant.policy.create.post",
-                      "api/v1/courses/admin/variant.rule.create.post",
-                      "api/v1/courses/admin/variant.rule.update.put"
+                      "api/admin/v1/courses/variant.policy.create.post",
+                      "api/admin/v1/courses/variant.rule.create.post",
+                      "api/admin/v1/courses/variant.rule.update.put"
                     ]
                   },
                   {
                     "group": "courses — variant assignments",
                     "pages": [
-                      "api/v1/courses/admin/assignment.list.get",
-                      "api/v1/courses/admin/assignment.update.put"
+                      "api/admin/v1/courses/assignment.list.get",
+                      "api/admin/v1/courses/assignment.update.put"
                     ]
                   },
                   {
                     "group": "courses — insights",
                     "pages": [
-                      "api/v1/courses/admin/insight.student.get",
-                      "api/v1/courses/admin/insight.content.get"
+                      "api/admin/v1/courses/insight.student.get",
+                      "api/admin/v1/courses/insight.content.get"
                     ]
                   }
                 ]

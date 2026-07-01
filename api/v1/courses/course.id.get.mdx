@@ -14,6 +14,7 @@ Returns a single published course by id.
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - Returns `404` for any course that is not `status = "published"` (draft and archived courses are invisible to learners).
 
 ## Headers

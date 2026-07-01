@@ -14,6 +14,7 @@ Returns all course enrollments for the authenticated learner, optionally filtere
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - Returns only enrollments belonging to the authenticated user (enforced by RLS).
 
 ## Headers

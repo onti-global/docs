@@ -14,6 +14,7 @@ Enrolls the authenticated learner in a course. The learner must have an active e
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - The `user_id` is taken from the JWT — never from the request body.
 
 ## Headers

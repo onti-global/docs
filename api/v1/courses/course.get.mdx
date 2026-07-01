@@ -14,6 +14,7 @@ Returns all published courses available to the authenticated learner. Draft and 
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - Results are scoped to `status = "published"` via RLS; no further filtering by user identity.
 
 ## Headers

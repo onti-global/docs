@@ -14,6 +14,7 @@ Returns the ordered module list for a course along with the learner's variant as
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 - The learner must be enrolled in the course.
 
 ## Headers

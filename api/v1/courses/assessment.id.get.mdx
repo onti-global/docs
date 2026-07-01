@@ -14,6 +14,7 @@ Returns an assessment flow definition — its title, version, and ordered questi
 ## Authentication
 
 - Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
 
 ## Headers
 
