@@ -1,0 +1,65 @@
+---
+title: "2.3 · Seguimiento de Progreso"
+sidebarTitle: "Progreso"
+description: "Tres niveles de tracking (ítem, módulo, curso), actualizaciones optimistas, panel de progreso y celebración de hitos."
+icon: "chart-line"
+---
+
+El progreso es el indicador emocional más importante del producto. Se muestra en tres niveles independientes — ítem, módulo y curso — todos actualizados en tiempo real sin recargar la pantalla.
+
+## Endpoints
+
+```
+POST /v1/progress
+GET  /v1/courses/:id/progress
+```
+
+## Tres niveles de progreso
+
+| Nivel | Componente visual | Dato del API |
+| --- | --- | --- |
+| **Ítem de contenido** | Checkmark o dot de color en la lista lateral del módulo | `item.progress.completed` |
+| **Módulo** | Barra de progreso horizontal + porcentaje numérico | `modules[n].completion_rate` |
+| **Curso completo** | Anillo SVG animado + porcentaje central | `completion_rate` (raíz del response de progreso) |
+
+## Panel de progreso del curso
+
+Pantalla dedicada accesible desde el detalle del curso y desde un botón en el reproductor. Muestra:
+
+- Anillo SVG grande con el `completion_rate` total del curso. Anima desde 0 hasta el valor real al abrir la pantalla (600ms, ease-out sobre `stroke-dashoffset`).
+- Porcentaje numérico en el centro del anillo.
+- Lista de módulos con barra de progreso individual, porcentaje y badge de estado (`Completado` / `En curso` / `Pendiente`).
+- Indicador del módulo actual resaltado.
+
+## Actualización optimista
+
+Al marcar un ítem como completado:
+
+1. Actualizar el estado visual del ítem **inmediatamente** — sin esperar respuesta del API.
+2. Recalcular el `completion_rate` del módulo de forma local.
+3. Recalcular el `completion_rate` del curso de forma local.
+4. Si el API retorna error: **revertir** todos los cambios visuales y mostrar un toast suave de error.
+
+Esto garantiza que el alumno siente el avance al instante, sin latencia de red perceptible.
+
+## Refetch del progreso
+
+Después de cada `POST /v1/progress` exitoso, invalidar la caché de `GET /v1/courses/:id/progress` para que el panel de progreso muestre datos frescos la próxima vez que se abra. No es necesario refetch inmediato si la actualización optimista ya reflejó el cambio.
+
+## Celebración de hitos
+
+| Evento | Celebración |
+| --- | --- |
+| **Primer ítem completado en el curso** | Confeti sutil en el área del reproductor + toast: _"¡Comenzaste tu camino!"_ — aparece una sola vez por curso, se registra localmente para no repetirse. |
+| **Módulo completado** | El anillo de progreso del módulo se llena con animación (`400ms, spring`). Badge "Módulo completado" entra con bounce. |
+| **Curso completado** | Pantalla de celebración fullscreen con confeti, métricas del logro (módulos completados, ítems completados, tiempo estimado de aprendizaje) y CTA de compartir. |
+
+<Note>
+  La pantalla de celebración del curso completo solo se muestra **una vez**, la primera vez que `enrollment.status` pasa a `"completed"`. Si el alumno vuelve a entrar al curso, no mostrarla de nuevo.
+</Note>
+
+## Accesibilidad del progreso
+
+- El anillo SVG de progreso incluye `aria-label` dinámico: _"Progreso del curso: {N} por ciento"_.
+- Las barras de progreso de módulo incluyen `role="progressbar"` con `aria-valuenow`, `aria-valuemin="0"` y `aria-valuemax="100"`.
+- Los dots de progreso de ítems incluyen `aria-label`: _"Completado"_ / _"En curso"_ / _"Pendiente"_.

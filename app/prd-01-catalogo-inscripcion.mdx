@@ -1,0 +1,38 @@
+---
+title: "PRD-01 · Catálogo e Inscripción"
+description: "Cubre el ciclo desde que el alumno abre la tab Cursos hasta que empieza a consumir su primer contenido."
+icon: "book-open"
+---
+
+Este PRD cubre el ciclo desde que el alumno abre la tab **Cursos** hasta que empieza a consumir su primer contenido. Incluye tres pantallas principales.
+
+<CardGroup cols={3}>
+  <Card title="Tab Cursos" icon="grid-2" href="/app/prd-01-tab-cursos">
+    Descubrimiento del catálogo e inscripciones activas con progreso.
+  </Card>
+  <Card title="Detalle del Curso" icon="circle-info" href="/app/prd-01-detalle-curso">
+    Presentación del curso y CTA contextual de inscripción según el estado del alumno.
+  </Card>
+  <Card title="Cuestionario" icon="list-check" href="/app/prd-01-cuestionario">
+    Onboarding personalizado que determina la variante de cada módulo.
+  </Card>
+</CardGroup>
+
+## Historias de usuario
+
+| Persona | Historia |
+| --- | --- |
+| Alumno | Quiero ver de un vistazo los cursos a los que tengo acceso y cuáles me faltan por descubrir, para decidir qué empezar o continuar hoy. |
+| Alumno | Quiero que el cuestionario inicial se sienta personal e inteligente — no como un formulario burocrático — para confiar en que el contenido que recibiré se adapta a mí. |
+| Alumno | Quiero que al inscribirme el sistema elija automáticamente el contenido correcto para mi nivel, sin que yo tenga que configurar nada. |
+
+## Endpoints cubiertos
+
+```
+GET  /v1/courses
+GET  /v1/courses/:id
+GET  /v1/enrollments
+POST /v1/enrollments
+GET  /v1/courses/:id/onboarding
+POST /v1/courses/:id/onboarding
+```

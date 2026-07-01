@@ -1,0 +1,107 @@
+---
+title: "Casos Límite y Consideraciones"
+sidebarTitle: "Casos Límite"
+description: "Comportamiento esperado en escenarios de variantes sin asignar, conectividad degradada, acceso expirado y compras anónimas."
+icon: "triangle-exclamation"
+---
+
+Situaciones que el equipo debe contemplar y cubrir antes de considerar cualquier feature de cursos como listo para producción.
+
+## Personalización y variantes
+
+### Variante no asignada a mitad del curso
+
+Si el alumno llega a un módulo cuyo `assigned_variant_id` es `null` (el backend usa asignación lazy — las variantes de módulos avanzados pueden asignarse conforme el alumno avanza):
+
+1. Mostrar el módulo bloqueado con el texto: _"Tu ruta se está configurando…"_
+2. Reintentar `GET /v1/courses/:id/modules` cada **3 segundos**.
+3. Máximo **5 reintentos**. Después: _"Vuelve en unos momentos para continuar."_
+4. No bloquear el acceso al resto del curso — el alumno puede navegar a módulos anteriores.
+
+<Warning>
+  Si el backend retorna `403 variant_not_assigned` en `GET /v1/variants/:id/contents`, redirigir silenciosamente al módulo más reciente con variante asignada. Nunca mostrar el código de error al usuario.
+</Warning>
+
+### Recalibración del cuestionario con progreso existente
+
+Si el alumno edita sus respuestas al cuestionario de personalización **después** de haber empezado el curso:
+
+- Las variantes de módulos **no empezados** pueden cambiar.
+- El progreso de módulos ya empezados **no se modifica**.
+
+Mostrar modal de confirmación antes de enviar:
+
+> _"Actualizar tus respuestas puede cambiar el contenido de módulos que aún no has empezado. Tu progreso actual se mantiene. ¿Continuar?"_
+
+Botones: **"Sí, actualizar"** / **"Cancelar"**
+
+### Cambio de variante con progreso en el módulo
+
+Si el backend reasigna una variante diferente a un módulo que el alumno ya empezó (edge case de gestión admin), el frontend debe manejar el caso de que `GET /v1/variants/:id/contents` retorne 403 para la variante anterior:
+
+- Invalidar la caché del módulo.
+- Recargar `GET /v1/courses/:id/modules` para obtener el nuevo `assigned_variant_id`.
+- Navegar al primer ítem de la nueva variante con un toast: _"Tu ruta fue actualizada."_
+
+---
+
+## Conectividad y modo offline
+
+| Escenario | Comportamiento |
+| --- | --- |
+| **Sin red al abrir la app** | Mostrar catálogo y enrollments desde caché local. Banner discreto en la parte superior: _"Sin conexión — mostrando última actualización."_ No bloquear la app. |
+| **Sin red al abrir el reproductor** | Si los datos del módulo están en caché, abrir normalmente. Si no, mostrar estado vacío con "Reconectando…" y reintentar automáticamente. |
+| **Corte durante reproducción de video/audio** | Continuar reproducción si el buffer alcanza. Al agotarse el buffer, pausar y mostrar _"Reconectando…"_. Reanudar automáticamente al recuperar. |
+| **Corte durante un quiz** | Mantener las respuestas en memoria. Deshabilitar "Enviar" y mostrar _"Reconectando…"_ hasta recuperar red. No perder el estado del formulario. |
+| **POST /v1/progress falla** | Encolar en almacenamiento local. Reintentar en batch al recuperar. Máximo 100 eventos en cola (ver [Mapa de API](/app/api-map#cola-offline-para-progreso)). |
+| **POST /v1/contents/:id/answers falla** | Mostrar toast "Toca para reintentar". No navegar al siguiente ítem hasta recibir éxito. |
+
+---
+
+## Acceso y pagos
+
+### Sin entitlement activo
+
+Si el alumno intenta abrir un curso sin tener `user_products` con `status = "active"` para ese curso:
+
+- Mostrar el CTA "Obtener acceso" en la pantalla de detalle.
+- **Nunca** mostrar ni disparar `POST /v1/enrollments`.
+- Al tocar "Obtener acceso", abrir el link de compra en el browser externo (no WebView embebida).
+
+### Acceso expirado
+
+Si `product_access.status = "expired"` (suscripción cancelada o acceso de un solo pago vencido):
+
+- Mostrar el curso en el catálogo con badge "Acceso expirado".
+- En la pantalla de detalle: CTA "Renovar acceso" que lleva a la página de compra.
+- Si el alumno tenía una inscripción activa, preservar su progreso visible en modo **read-only**: puede ver los módulos completados pero no continuar.
+- No eliminar el enrollment — `enrollment.status` pasa a `"dropped"` automáticamente por el backend.
+
+### Compra anónima previa al registro
+
+El flujo de pago puede completarse desde una landing page antes de que el alumno cree su cuenta en la app. En ese caso:
+
+1. `product_access` tiene `user_id = null` y solo `email`.
+2. Al hacer sign-up con el mismo email, el backend reconcilia automáticamente `product_access.email → user_id` y crea el entitlement en `user_products`.
+3. La app debe **refrescar `user_products`** en el primer login exitoso para que el nuevo entitlement sea visible de inmediato.
+
+<Note>
+  Si el alumno se registra con un email diferente al que usó en el checkout, el entitlement no se reconciliará automáticamente. Tener un camino de soporte (email a support@onti.global) para estos casos.
+</Note>
+
+---
+
+## Accesibilidad
+
+Requisitos mínimos antes de considerar la feature lista para producción:
+
+| Requisito | Detalle |
+| --- | --- |
+| Labels en controles del reproductor | Todos los botones (play, pause, siguiente, anterior, cerrar) tienen `accessibilityLabel` descriptivos en español. |
+| Anillo SVG de progreso | Incluye `aria-label` dinámico: _"Progreso del curso: {N} por ciento"_. |
+| Barras de progreso de módulo | `role="progressbar"` con `aria-valuenow`, `aria-valuemin="0"`, `aria-valuemax="100"`. |
+| Opciones del cuestionario (web) | Navegables con Tab / Enter / teclas de flecha. Focus ring visible. |
+| Opciones del cuestionario (nativo) | VoiceOver (iOS) y TalkBack (Android) pueden seleccionar opciones con swipe + double-tap. |
+| Reproductor completo (nativo) | VoiceOver/TalkBack puede operar play, pause, navegación entre ítems y cerrar el reproductor. |
+| Contraste de texto | Mínimo 4.5:1 en todos los textos sobre fondo (WCAG AA). |
+| Tamaño de toque mínimo | Todos los elementos interactivos tienen al menos 44×44pt de área toca (iOS HIG / Android Material). |

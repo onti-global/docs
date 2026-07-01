@@ -152,6 +152,42 @@
         ]
       },
       {
+        "tab": "App",
+        "icon": "mobile",
+        "groups": [
+          {
+            "group": "Visión General",
+            "pages": ["app/index"]
+          },
+          {
+            "group": "PRD-01 · Catálogo e Inscripción",
+            "pages": [
+              "app/prd-01-catalogo-inscripcion",
+              "app/prd-01-tab-cursos",
+              "app/prd-01-detalle-curso",
+              "app/prd-01-cuestionario"
+            ]
+          },
+          {
+            "group": "PRD-02 · Reproductor de Curso",
+            "pages": [
+              "app/prd-02-reproductor-curso",
+              "app/prd-02-arquitectura",
+              "app/prd-02-tipos-contenido",
+              "app/prd-02-progreso"
+            ]
+          },
+          {
+            "group": "Especificaciones",
+            "pages": [
+              "app/animaciones",
+              "app/api-map",
+              "app/edge-cases"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Suprahumano",
         "icon": "sparkles",
         "groups": [

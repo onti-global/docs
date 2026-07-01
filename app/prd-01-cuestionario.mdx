@@ -1,0 +1,95 @@
+---
+title: "1.3 · Cuestionario de Personalización"
+sidebarTitle: "Cuestionario"
+description: "Onboarding inicial que determina la variante de contenido asignada al alumno en cada módulo del curso."
+icon: "list-check"
+---
+
+Inmediatamente después de inscribirse, el alumno completa el cuestionario de onboarding. Sus respuestas activan el motor de asignación de variantes del backend: las reglas configuradas se evalúan en orden de prioridad y el alumno queda asignado a la variante correspondiente de cada módulo.
+
+Esta pantalla es el momento más crítico de personalización del producto. Debe sentirse personal e inteligente — no como un formulario burocrático.
+
+## Endpoints
+
+```
+GET  /v1/courses/:id/onboarding
+POST /v1/courses/:id/onboarding
+```
+
+La respuesta de `GET` incluye:
+- `flow` — definición del cuestionario con sus preguntas
+- `existing_response` — las respuestas previas del alumno, si ya lo completó
+
+## Flujo paso a paso
+
+<Steps>
+  <Step title="Pantalla de bienvenida">
+    Mostrar el `flow.title` y un texto explicativo:
+
+    > "Tus respuestas personalizan tu camino de aprendizaje. No hay respuestas correctas ni incorrectas."
+
+    CTA principal: **"Comenzar"**
+  </Step>
+  <Step title="Preguntas — una a la vez">
+    Cada pregunta ocupa la pantalla completa (fullscreen). Barra de progreso en la parte superior: `Pregunta {N} de {M}`.
+
+    El componente se determina por `question.type`:
+
+    | `type` | Componente |
+    | --- | --- |
+    | `single_choice` | Lista de opciones como tarjetas seleccionables (radio). Una a la vez. |
+    | `multiple_choice` | Tarjetas con checkboxes. Múltiples selecciones permitidas. |
+    | `scale` | Slider horizontal con etiquetas en los extremos. Valor inicial centrado. |
+    | `text` | Área de texto libre con contador de caracteres. |
+    | `boolean` | Par de botones grandes: "Sí" / "No". |
+
+    **Navegación entre preguntas:**
+    - "Siguiente" solo se activa cuando la pregunta tiene `required: true` y hay respuesta.
+    - "Atrás" siempre disponible excepto en la primera pregunta.
+    - No se puede saltar preguntas requeridas.
+  </Step>
+  <Step title="Pantalla de procesamiento">
+    Después de la última pregunta, mostrar una animación "procesando tu camino" (~3 segundos) **antes** de disparar `POST /v1/courses/:id/onboarding`.
+
+    Esto comunica que el sistema está analizando las respuestas activamente, haciendo que la personalización se sienta real.
+  </Step>
+  <Step title="Navegar al reproductor">
+    En éxito (`200 OK`), navegar directamente al [Reproductor del Curso](/app/prd-02-arquitectura). El backend ya asignó las variantes de todos los módulos.
+  </Step>
+</Steps>
+
+## Cuestionario ya completado
+
+Si `GET /v1/courses/:id/onboarding` retorna `existing_response` con datos, **no relanzar el cuestionario desde cero**. En su lugar:
+
+1. Pre-rellenar todas las respuestas con los valores ya guardados.
+2. Mostrar un banner en la parte superior: _"Actualiza tus respuestas para recalibrar tu ruta de aprendizaje."_
+3. Ofrecer dos opciones: **"Editar"** (abre el cuestionario en modo edición) y **"Continuar"** (ir directamente al reproductor sin cambios).
+
+<Note>
+  Re-submitting con `POST /v1/courses/:id/onboarding` sobrescribe la respuesta anterior e inmediatamente reevalúa la asignación de variantes. Si el alumno ya tiene progreso en el curso, mostrar un modal de confirmación antes de enviar: "Actualizar puede cambiar el contenido de módulos que aún no has empezado. Tu progreso actual se mantiene. ¿Continuar?"
+</Note>
+
+## Persistencia de sesión
+
+Guardar las respuestas en almacenamiento local (AsyncStorage en React Native) a medida que el alumno avanza pregunta a pregunta. Si cierra la app antes de finalizar, retomar desde la última pregunta respondida al volver.
+
+Limpiar el estado local después de un `POST` exitoso.
+
+## Validación por tipo de pregunta
+
+| `type` | Condición para activar "Siguiente" | Payload de respuesta |
+| --- | --- | --- |
+| `single_choice` | Exactamente 1 opción seleccionada | `"value"` (string del option) |
+| `multiple_choice` | Al menos 1 opción seleccionada | `["value1", "value2"]` |
+| `scale` | Slider movido al menos una vez | `integer` dentro del rango |
+| `text` | Campo no vacío (trim) | `"texto libre"` |
+| `boolean` | Botón Sí o No tocado | `true` o `false` |
+
+## Error handling
+
+| Error | Comportamiento |
+| --- | --- |
+| `GET /v1/courses/:id/onboarding` → 403 | El alumno no está inscrito. Navegar atrás y re-mostrar el CTA de inscripción. |
+| `POST /v1/courses/:id/onboarding` → error de red | Mantener las respuestas en memoria. Mostrar toast con "Toca para reintentar" sin perder el estado del formulario. |
+| `POST /v1/courses/:id/onboarding` → 400 (preguntas faltantes) | Resaltar la primera pregunta requerida sin respuesta y hacer scroll hacia ella. |

@@ -1,0 +1,67 @@
+---
+title: "Especificaciones de Animación"
+sidebarTitle: "Animaciones"
+description: "Especificaciones de duración, easing y propósito para cada animación de la experiencia de cursos."
+icon: "wand-magic-sparkles"
+---
+
+Cada animación tiene un propósito funcional: comunicar dirección, confirmar una acción o celebrar un logro. No hay efectos decorativos vacíos.
+
+<Warning>
+  **prefers-reduced-motion:** Todas las animaciones que impliquen movimiento (slide, bounce, confeti, scale) deben desactivarse si el sistema operativo reporta `prefers-reduced-motion: reduce`. Las transiciones de color (estado completado, selección de opción) pueden mantenerse ya que no implican movimiento.
+</Warning>
+
+## Transiciones de pantalla
+
+| Animación | Duración · Easing | Propósito |
+| --- | --- | --- |
+| **Entrada al reproductor** | `300ms · ease-out · slide-up` | La pantalla sube desde la parte inferior. Comunica que se entra en un espacio diferente — el modo aprendizaje. |
+| **Salida del reproductor** | `250ms · ease-in · slide-down` | Inverso de la entrada. La pantalla cae de regreso al catálogo. |
+| **Transición entre ítems (avanzar)** | `250ms · ease-in-out · fade + slide hacia la izquierda` | El ítem actual sale por la izquierda; el nuevo entra por la derecha. Comunica dirección de avance. |
+| **Transición entre ítems (retroceder)** | `250ms · ease-in-out · fade + slide hacia la derecha` | Inverso del avance. Comunica que se está yendo atrás. |
+
+<Note>
+  Nunca usar un fade simple para transiciones entre ítems de contenido — la dirección del slide comunica la posición relativa del alumno en el curso.
+</Note>
+
+## Progreso y estado
+
+| Animación | Duración · Easing | Propósito |
+| --- | --- | --- |
+| **Ítem completado (dot)** | `200ms · spring(stiffness: 300, damping: 20) · scale` | El dot de progreso hace un micro-bounce al pasar a completado, con cambio de color. Confirma la acción visualmente. |
+| **Barra de progreso del módulo** | `400ms · ease-out · fill de izquierda a derecha` | La barra se extiende animada tras cada ítem completado. El porcentaje hace count-up numérico sincronizado. |
+| **Anillo de progreso del curso** | `600ms · ease-out · stroke-dashoffset` | El anillo SVG anima desde 0 hasta el valor real al abrir la vista de progreso. Arranca desde `stroke-dashoffset = circunferencia` hasta el valor correspondiente al porcentaje. |
+
+## Cuestionario
+
+| Animación | Duración · Easing | Propósito |
+| --- | --- | --- |
+| **Selección de opción** | `120ms · ease · scale(0.97) → scale(1.0)` | Al tocar una opción en el cuestionario o en un quiz: micro-haptic + sutil scale feedback. El borde de la tarjeta cambia de color en 120ms. |
+| **Transición entre preguntas** | `200ms · ease-in-out · slide horizontal` | Igual que la transición entre ítems del reproductor: avanzar desliza a la izquierda, retroceder a la derecha. |
+| **Desbloqueo de módulos post-onboarding** | `150ms stagger por módulo · ease-out · fade + scale-up desde 0.95` | Después de completar el cuestionario, los módulos en la lista del curso aparecen en cascada de arriba hacia abajo, con 150ms de desfase entre cada uno. |
+
+## Celebraciones
+
+| Animación | Duración · Easing | Propósito |
+| --- | --- | --- |
+| **Módulo completado** | `800ms · spring(stiffness: 200, damping: 15)` | El anillo de progreso del módulo completa su fill. El badge "Módulo completado" entra con bounce desde escala 0 hasta 1. |
+| **Confeti de módulo** | `1000ms · physics-based · partículas locales` | Confeti restringido al área del módulo en la lista — no pantalla completa. Emite desde el badge y cae con gravedad simulada. |
+| **Pantalla de curso completado** | `Secuencia de 2s · stagger` | 1) Fondo oscurece (300ms). 2) Confeti fullscreen empieza (500ms). 3) Tarjeta de métricas hace slide-up (400ms). 4) CTA de compartir hace fade-in (300ms). |
+
+## Implementación en React Native
+
+Para las animaciones de spring y physics-based, usar `react-native-reanimated` v3 con `withSpring` y `withTiming`. Evitar el bridge animado de React Native para garantizar 60fps en UI thread.
+
+```js
+// Ejemplo: dot completado
+const scale = useSharedValue(1);
+
+function onCompleted() {
+  scale.value = withSequence(
+    withTiming(0.8, { duration: 80 }),
+    withSpring(1, { stiffness: 300, damping: 20 })
+  );
+}
+```
+
+Para el confeti, usar una librería como `react-native-confetti-cannon` configurada con un área delimitada, o una implementación custom con Canvas si se necesita control fino.

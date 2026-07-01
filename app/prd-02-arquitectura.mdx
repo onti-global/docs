@@ -1,0 +1,83 @@
+---
+title: "2.1 · Arquitectura del Reproductor"
+sidebarTitle: "Arquitectura"
+description: "Jerarquía de datos del reproductor, orden de carga, lógica de reanudación y comportamiento ante módulos sin variante asignada."
+icon: "sitemap"
+---
+
+El reproductor es una pantalla modal fullscreen que encapsula todo el recorrido de un curso. Una vez dentro, la app desaparece — solo existe el contenido, con controles que emergen al tocar la pantalla.
+
+## Jerarquía de datos
+
+```
+Curso
+ └── Módulos            GET /v1/courses/:id/modules
+       └── Variante asignada por módulo  (assigned_variant_id)
+             └── Contenidos              GET /v1/variants/:id/contents
+                   └── Progreso por ítem (item.progress.started / completed)
+```
+
+Cada alumno tiene exactamente **una variante asignada por módulo**, determinada por las respuestas al [Cuestionario de Personalización](/app/prd-01-cuestionario). La variante define qué ítems de contenido ve ese alumno dentro del módulo.
+
+## Endpoints del reproductor
+
+```
+GET  /v1/courses/:id/modules
+GET  /v1/variants/:id/contents
+GET  /v1/courses/:id/progress
+POST /v1/progress
+```
+
+## Orden de carga al abrir el reproductor
+
+<Steps>
+  <Step title="Cargar lista de módulos">
+    `GET /v1/courses/:id/modules` — retorna los módulos ordenados por `position`, cada uno con su `assigned_variant_id` (o `null` si no asignado aún). Sin esta lista el reproductor no puede construir la navegación lateral.
+  </Step>
+  <Step title="Cargar contenidos del módulo activo">
+    En paralelo con el paso 1: `GET /v1/variants/:id/contents` del módulo con progreso activo. La respuesta incluye el estado `progress` de cada ítem (`started`, `completed`, `completed_at`).
+  </Step>
+  <Step title="Reanudar donde el alumno dejó">
+    Navegar automáticamente al último ítem donde `started: true` y `completed: false`. Si todos los ítems del módulo están completados, ir al primer ítem sin completar del siguiente módulo.
+  </Step>
+  <Step title="Pre-cargar el módulo siguiente">
+    En segundo plano, disparar `GET /v1/variants/:id/contents` del siguiente módulo para que la transición sea instantánea.
+  </Step>
+</Steps>
+
+## Navegación entre módulos
+
+La navegación lateral (sidebar en tablet/web, drawer en móvil) lista todos los módulos con:
+- Número de posición
+- Título del módulo
+- Badge de estado: `Completado` / `En curso` / `Bloqueado`
+- Barra de progreso individual
+
+Al seleccionar un módulo, cargar sus contenidos si no están en caché.
+
+## Módulo sin variante asignada
+
+Si `assigned_variant_id` es `null` para un módulo (asignación lazy por el backend):
+
+1. Mostrar el módulo en la lista como bloqueado con texto: _"Tu ruta se está configurando…"_
+2. Reintentar `GET /v1/courses/:id/modules` cada **3 segundos**, hasta un máximo de **5 reintentos**.
+3. Después de 5 reintentos sin éxito: _"Vuelve en unos momentos para continuar."_
+
+<Warning>
+  Si el backend retorna `403 variant_not_assigned` en `GET /v1/variants/:id/contents`, redirigir silenciosamente al módulo más reciente con variante asignada. **Nunca mostrar este error al usuario directamente.**
+</Warning>
+
+## Navegación entre ítems dentro de un módulo
+
+Los ítems de contenido se presentan en orden de `position`. La navegación inferior tiene:
+- **Anterior** — disponible desde el segundo ítem
+- **Completado / Siguiente** — el label cambia según si el ítem actual ya tiene `completed: true`
+
+Al avanzar o retroceder, aplicar la animación de [transición entre ítems](/app/animaciones#transición-entre-ítems): el contenido actual sale por la izquierda y el nuevo entra por la derecha (invertido al retroceder).
+
+## Modo revisión
+
+Si el alumno ya completó el curso (`enrollment.status = "completed"`), el reproductor abre en **modo revisión**:
+- Todos los módulos e ítems son navegables libremente sin restricciones de orden.
+- El progreso no se modifica (no se disparan nuevos eventos `POST /v1/progress`).
+- Los quizzes muestran las respuestas previas del alumno en modo read-only.
