@@ -1640,7 +1640,8 @@ create policy "student_assessment_responses: self insert"
 
 create policy "student_assessment_responses: self update"
   on student_assessment_responses for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Policies are readable so the app knows which flow to trigger at each point.
 -- Rules are backend-only — learners must not see the assignment logic.
