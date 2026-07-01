@@ -1,0 +1,141 @@
+---
+title: "courses.md"
+---
+
+<Note>
+  This is a conventions/spec document, not a migration source. The real DDL lives in `schema.mdx` (mirrored from version-controlled migrations) — this page explains the *model* behind those tables so engineers and agents don't have to reverse-engineer it from column comments.
+</Note>
+
+## Mental model
+
+A course is a fixed curriculum with a personalized path through it. Two things are true at the same time, and conflating them is the most common mistake when extending this domain:
+
+1. **The curriculum is fixed.** Every learner enrolled in a course sees the same modules, in the same order. Nothing personalizes which modules exist, how many there are, or their sequence.
+2. **The path through each module is personal.** Within a single module, a learner is assigned one of that module's pre-authored variants — a complete, ready-to-consume content sequence. Different learners in the same module can be on different variants; that assignment never affects any other module.
+
+There is no such thing as a course-wide "track" or "path" in this model. Personalization is always scoped to one module at a time.
+
+## Hierarchy
+
+```
+courses                        (one row — e.g. "Suprahumano")
+  └── course_modules            FIXED set, identical for every learner,
+        │                       ordered by `position`
+        └── course_variants     one or more pre-authored paths through
+              │                 this module — the unit of personalization
+              └── course_contents  ordered atomic items (html/video/audio/
+                                   meditation/quiz) inside one variant
+```
+
+Per-learner state lives in separate tables, not in the structure above:
+
+| Table | Maps | Cardinality |
+|---|---|---|
+| `course_enrollments` | user → course | one row per (user, course) |
+| `course_alumni_assignments` | user + module → variant | one row per (user, module) — **not** per (user, course) |
+| `student_progress` | user + content item → completion | one row per (user, content) |
+| `student_answers` | user + content item → answers | one row per (user, content) |
+
+## Worked example
+
+Given "Module A has 2 variants, Module B has 1, Module C has 3" — the degenerate case (a module with exactly one variant) is not special-cased; it's just a module where every learner necessarily lands on the same variant, because there's nothing else to assign.
+
+```sql
+insert into courses (id, title, status) values
+  ('c1', 'Suprahumano', 'published');
+
+insert into course_modules (id, course_id, title, position) values
+  ('mA', 'c1', 'Module A', 0),
+  ('mB', 'c1', 'Module B', 1),
+  ('mC', 'c1', 'Module C', 2);
+
+insert into course_variants (id, module_id, name) values
+  ('mA-v1', 'mA', 'Variant 1'), ('mA-v2', 'mA', 'Variant 2'),
+  ('mB-v1', 'mB', 'Only variant'),
+  ('mC-v1', 'mC', 'Variant 1'), ('mC-v2', 'mC', 'Variant 2'), ('mC-v3', 'mC', 'Variant 3');
+
+insert into course_alumni_assignments (user_id, module_id, variant_id) values
+  ('user1', 'mA', 'mA-v2'), ('user1', 'mB', 'mB-v1'), ('user1', 'mC', 'mC-v3'),
+  ('user2', 'mA', 'mA-v1'), ('user2', 'mB', 'mB-v1'), ('user2', 'mC', 'mC-v1');
+```
+
+Both users go through Module A → B → C, in that order. Only which `course_variants` row each ends up assigned to, per module, differs.
+
+## Enrollment and course lifecycle
+
+- `course_status`: `draft` (not visible to learners) → `published` (enrollable, in the catalog) → `archived` (removed from the catalog, but **existing enrollments must keep working** — an archived course is not a deleted one).
+- `enrollment_status`: `active` → `completed` or `dropped`. A `dropped` enrollment revokes read/write access to that course's modules, variants, and content — a learner who drops a course shouldn't still be able to pull its video URLs or submit progress against it.
+- These two lifecycles are independent: a course can be `archived` while a specific learner's enrollment is still `active` (they keep access) or `completed` (they can still review it) — access is driven by the enrollment, not by the course's catalog visibility.
+
+## Personalization mechanics
+
+There are two ways a `course_alumni_assignments` row gets created:
+
+1. **Manual/default assignment** — the backend assigns a variant directly (e.g. at enrollment time, or a module's fixed `default_variant_id` when there's no real choice to make, as in the Module B example above).
+2. **Assessment-driven assignment** — an `assessment_flow` is bound to a course or module via a `variant_assignment_policy`. The learner completes the flow (`student_assessment_responses`), the backend evaluates that policy's `variant_assignment_rules` in priority order, and the first matching rule's `target_variant_id` (or the policy's `default_variant_id` if nothing matches) is written into `course_alumni_assignments`.
+
+<Note>
+  `variant_assignment_policies.trigger_point` (`before_course` / `before_module` / `after_module` / `standalone`) controls **when** the assessment fires, not what it's allowed to personalize. Even a `before_course` policy — one tied to `course_id` rather than a specific `module_id` — still only ever assigns a variant for **one module**, namely whichever module owns the `course_variants` row its matching rule points at. It does not, and cannot, personalize the whole course from a single assessment. If a signal needs to drive assignments for more than one module, that requires one policy (and rule set) per module — there is no construct for a single rule to fan out across modules.
+</Note>
+
+## Content types
+
+`course_content_type` discriminates what a `course_contents` row renders and which storage column is populated:
+
+| Type | Populated column | Notes |
+|---|---|---|
+| `html` | `body` | markup; `url` optionally links a referenced asset |
+| `video` | `url` | CDN/streaming asset |
+| `audio` | `url` | audio file |
+| `meditation` | `url` | guided audio/video file |
+| `quiz` | `body` | question JSON schema, shape owned by the application |
+
+## Progress, answers, and insights
+
+- `student_progress` — one row per (user, content). Inserted when a learner opens an item; `completed_at` is stamped on finish. A missing row means "not started," not "in progress."
+- `student_answers` — one row per (user, content) for answer-bearing content (mainly `quiz`). Re-submission updates the row in place; there's no history of prior answers.
+- `student_insight_memory` — unlike the two above, this is **append-only**: multiple insights can exist for the same (user, content) pair. It's written by the backend/MCP server, not the learner, and is what an agent reads to recall what it previously noticed about a learner's interaction with a piece of content (a struggle, a realization, a key question) — distinct from the binary started/completed signal in `student_progress`.
+
+Both `student_progress` and `student_answers` writes are only permitted when the content belongs to the variant the learner is actually assigned to (via `course_alumni_assignments`) **and** the learner still has non-`dropped` course access — a learner can't record progress against a variant they were never assigned, or after leaving the course.
+
+## Onboarding vs. assessment flows — don't conflate these
+
+Both look similar (JSONB `answers`, one row per user) but serve different purposes:
+
+| | `course_onboardings` | `assessment_flows` + `student_assessment_responses` |
+|---|---|---|
+| Purpose | Free-form intake at enrollment (preferences, prior knowledge) | Structured, versioned questionnaire that **drives variant assignment** |
+| Shape | App-owned JSONB blob, no fixed question schema in SQL | Explicit `assessment_questions` rows (typed, ordered, optional/required) |
+| Reusability | One onboarding form per course | One flow can be reused across many courses/modules via a `variant_assignment_policy` |
+| Drives assignment? | No — informational only | Yes — feeds `variant_assignment_rules` |
+| Cardinality | One per (user, course) | One per (user, flow); a flow can be bound into multiple policies |
+
+If a feature needs to *change what content a learner sees* based on answers, it belongs in the assessment-flow system, not `course_onboardings`.
+
+## Access control summary
+
+All of the following require the caller to be `authenticated`; reads are additionally scoped by actual course access (`has_course_access`/`has_module_access`/`has_assessment_flow_access` in `schema.mdx`), not merely being logged in. Everything not listed as learner-writable is `service_role`-only.
+
+| Table | Learner read | Learner write |
+|---|---|---|
+| `courses` | published, or enrolled (incl. archived) | — |
+| `course_enrollments` | own rows | — |
+| `course_onboardings` | own rows | insert/update own |
+| `course_modules` | if enrolled in the course | — |
+| `course_variants` | if enrolled in the parent course | — |
+| `course_contents` | only their own assigned variant | — |
+| `course_alumni_assignments` | own rows | — |
+| `student_progress` | own rows | insert/update, gated to assigned variant + active access |
+| `student_answers` | own rows | insert/update, gated to assigned variant + active access |
+| `student_insight_memory` | own rows | — |
+| `assessment_flows` / `assessment_questions` | if accessible via a bound policy | — |
+| `student_assessment_responses` | own rows | insert/update own |
+| `variant_assignment_policies` | if accessible (course/module access, or standalone) | — |
+| `variant_assignment_rules` | never — not even the learner it targets | — |
+
+`variant_assignment_rules` being fully unreadable (RLS enabled, zero policies) is intentional: the matching logic that decides a learner's variant must not be inspectable by that learner.
+
+## Known gaps
+
+- **"A module must have at least one variant" is a convention, not a constraint.** Nothing in SQL prevents creating a `course_modules` row with zero `course_variants`. A plain `check` constraint can't express "at least one child row exists" — enforcing this would need a trigger, or it stays a authoring-tool responsibility. Flag if this needs hardening.
+- **`variant_assignment_rules.target_variant_id` doesn't verify it belongs to the policy's own `module_id`/course context.** The application must ensure a rule under a `before_module` policy targets a variant of *that* module — the FK alone doesn't enforce it (same class of gap as `course_alumni_assignments.variant_id` needing to match its own `module_id`, called out in that table's comment).

@@ -377,7 +377,8 @@
       {
         "tab": "supabase",
         "pages": [
-          "conventions-md",
+          "agents/conventions-md",
+          "agents/courses-md",
           "schema"
         ]
       }
