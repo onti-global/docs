@@ -1376,7 +1376,17 @@ create policy "student_progress: self insert"
 
 create policy "student_progress: self update"
   on student_progress for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1
+      from course_contents cc
+      join course_alumni_assignments caa on caa.variant_id = cc.variant_id
+      where cc.id = content_id
+        and caa.user_id = auth.uid()
+    )
+  );
 
 create policy "student_answers: self read"
   on student_answers for select
