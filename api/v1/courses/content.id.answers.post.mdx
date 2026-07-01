@@ -1,0 +1,87 @@
+---
+title: "content.id.answers.post"
+api: "v1"
+endpoint: "/v1/contents/:id/answers"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Submit Content Answers
+
+Submits or updates the learner's answers for a quiz or interactive content item. Re-submitting overwrites the previous answers in place. The content item must be of a type that accepts answers (e.g. `quiz`).
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
+- The learner must be assigned to the variant that contains this content item.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The content item id. |
+
+## Request body
+
+```json
+{
+  "answers": {
+    "question_1": "option_b",
+    "question_2": ["option_a", "option_c"]
+  }
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `answers` | `object` | Yes | Map of answer keys to answer values. The shape is defined by the content item's `body` JSON schema. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "content_id": "c2...gg",
+  "answers": {
+    "question_1": "option_b",
+    "question_2": ["option_a", "option_c"]
+  },
+  "submitted_at": "2026-06-29T11:30:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `content_id` | `uuid` | The content item id. |
+| `answers` | `object` | The stored answers, echoed back. |
+| `submitted_at` | `timestamptz` | Submission timestamp (server-set). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_body` | `answers` is missing or not an object. |
+| `403` | `variant_not_assigned` | The learner is not assigned to the variant containing this content. |
+| `404` | `content_not_found` | Content item does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "answers must be a non-null object"
+  }
+}
+```

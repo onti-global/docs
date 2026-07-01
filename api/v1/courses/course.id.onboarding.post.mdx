@@ -1,0 +1,101 @@
+---
+title: "course.id.onboarding.post"
+api: "v1"
+endpoint: "/v1/courses/:id/onboarding"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Submit Course Onboarding
+
+Submits or updates the learner's intake questionnaire answers for a course. Re-submitting overwrites the previous answers in place and bumps `onboarding_version`. After a successful submission the backend evaluates variant assignment rules and may assign the learner to module variants.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
+- The learner must be enrolled in the course.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Request body
+
+```json
+{
+  "answers": {
+    "q1...aa": "beginner",
+    "q2...bb": "Build confidence in client sessions"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `answers` | `object` | Yes | Map of `question_id → answer_value`. All required questions must have a non-null entry. |
+
+### Answer value types by question type
+
+| Question type | Answer value |
+| --- | --- |
+| `single_choice` | `string` — one of the option `value`s |
+| `multiple_choice` | `string[]` — one or more option `value`s |
+| `scale` | `integer` — within the configured min–max range |
+| `text` | `string` |
+| `boolean` | `true \| false` |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "course_id": "1aa2...d4",
+  "onboarding_version": 1,
+  "answers": {
+    "q1...aa": "beginner",
+    "q2...bb": "Build confidence in client sessions"
+  },
+  "completed_at": "2026-06-29T10:05:00Z"
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | The course the answers belong to. |
+| `onboarding_version` | `integer` | Form version the answers correspond to. |
+| `answers` | `object` | The stored answers, echoed back. |
+| `completed_at` | `timestamptz` | Submission timestamp (server-set). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_body` | `answers` is missing, not an object, or a required question has no answer. |
+| `403` | `not_enrolled` | The learner is not enrolled in this course. |
+| `404` | `course_not_found` | Course does not exist or is not published. |
+| `404` | `no_onboarding` | The course has no `before_course` assessment flow configured. |
+| `422` | `invalid_answer` | An answer value is not valid for its question type (e.g. unrecognised option value). |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_answer",
+    "message": "answer for question q1...aa must be one of: none, beginner, intermediate, advanced"
+  }
+}
+```

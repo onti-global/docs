@@ -1,0 +1,115 @@
+---
+title: "variant.id.contents.get"
+api: "v1"
+endpoint: "/v1/variants/:id/contents"
+method: "get"
+client: "apps"
+tag: "api"
+---
+
+# GET Variant Contents
+
+Returns the ordered content items for a variant along with the learner's progress state for each item. This is the primary data source for the course player view.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
+- The learner must be assigned to this variant (i.e. `assigned_variant_id` for the parent module must match `:id`).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The variant id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "variant": {
+    "id": "v2...dd",
+    "module_id": "m1...cc",
+    "name": "Standard Path"
+  },
+  "items": [
+    {
+      "id": "c1...ff",
+      "type": "video",
+      "title": "Welcome to the Coaching Mindset",
+      "url": "https://cdn.example.com/videos/c1ff.mp4",
+      "body": null,
+      "position": 0,
+      "progress": {
+        "started": true,
+        "completed": true,
+        "completed_at": "2026-06-28T09:15:00Z"
+      }
+    },
+    {
+      "id": "c2...gg",
+      "type": "quiz",
+      "title": "Reflection Check",
+      "url": null,
+      "body": "{\"questions\":[...]}",
+      "position": 1,
+      "progress": {
+        "started": false,
+        "completed": false,
+        "completed_at": null
+      }
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `variant` | `object` | The variant metadata. |
+| `variant.id` | `uuid` | Variant id. |
+| `variant.module_id` | `uuid` | The parent module id. |
+| `variant.name` | `string` | Variant name. |
+| `items` | `Content[]` | Content items in ascending `position` order. |
+
+### Content object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Content item id. |
+| `type` | `"html" \| "video" \| "audio" \| "meditation" \| "quiz"` | Rendering hint. Determines which of `url` or `body` is populated. |
+| `title` | `string` | Content item title. |
+| `url` | `string \| null` | CDN/streaming asset URL. Populated for `video`, `audio`, and `meditation`. |
+| `body` | `string \| null` | HTML markup or quiz JSON schema. Populated for `html` and `quiz`. |
+| `position` | `integer` | Ascending display order within the variant. |
+| `progress.started` | `boolean` | `true` once the learner has opened this item. |
+| `progress.completed` | `boolean` | `true` once the learner has marked this item complete. |
+| `progress.completed_at` | `timestamptz \| null` | When the learner completed this item. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `variant_not_assigned` | The learner is not assigned to this variant. |
+| `404` | `not_found` | Variant does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "variant_not_assigned",
+    "message": "learner is not assigned to this variant"
+  }
+}
+```

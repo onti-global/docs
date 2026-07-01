@@ -1,0 +1,140 @@
+---
+title: "2.2 · Tipos de Contenido"
+sidebarTitle: "Tipos de Contenido"
+description: "Componentes de UI y reglas de progreso para cada tipo de ítem de contenido: video, audio, meditación, quiz y HTML."
+icon: "layers"
+---
+
+El campo `type` de cada ítem de contenido determina el componente de UI que se renderiza y las reglas de cuándo marcar el ítem como `started` y `completed`. El progreso se registra con `POST /v1/progress`.
+
+## Resumen de tipos
+
+<CardGroup cols={2}>
+  <Card title="Video" icon="video">
+    Reproductor nativo. URL del CDN desde `item.url`. `completed` al alcanzar el **90% del tiempo total**.
+  </Card>
+  <Card title="Audio" icon="headphones">
+    Player minimalista con waveform visualizer. `completed` al **90%**. Soporta reproducción en background (controles de pantalla de bloqueo en iOS y Android).
+  </Card>
+  <Card title="Meditación" icon="moon">
+    Como audio, pero con fondo oscuro y animación respiratoria suave (círculo que expande y contrae). Pantalla bloqueada durante la sesión. `completed` al **100%** — la sesión debe completarse íntegramente.
+  </Card>
+  <Card title="Quiz" icon="circle-question">
+    JSON schema en `item.body`. Respuestas enviadas a `POST /v1/contents/:id/answers`. `completed` al enviar con éxito.
+  </Card>
+  <Card title="HTML" icon="file-lines">
+    Contenido editorial en `item.body`. Renderizado con WebView o renderer nativo. `completed` al hacer scroll hasta el **95% del contenido**.
+  </Card>
+</CardGroup>
+
+## Tabla de triggers de progreso
+
+| Tipo | Datos en el ítem | Trigger `started` | Trigger `completed` |
+| --- | --- | --- | --- |
+| `video` | `url` → CDN asset | Al iniciar reproducción (primeros 3s) | Al alcanzar 90% del tiempo total |
+| `audio` | `url` → archivo de audio | Al iniciar reproducción (primeros 3s) | Al alcanzar 90% del tiempo total |
+| `meditation` | `url` → audio/video | Al iniciar la sesión | Al completar reproducción (100%) |
+| `quiz` | `body` → JSON schema | Al abrir la pantalla del quiz | Al enviar respuestas con éxito |
+| `html` | `body` → markup HTML | Al abrir la pantalla | Al hacer scroll hasta el 95% del contenido |
+
+## Registro de progreso
+
+`POST /v1/progress` se dispara de forma **optimista** (fire-and-forget):
+
+```json
+{
+  "content_id": "c1...ff",
+  "event": "completed"
+}
+```
+
+Si la llamada falla por red, agregar el evento a una **cola local persistente** (SQLite / AsyncStorage) y reintentar en batch al recuperar conectividad. El alumno **nunca** debe ver un error de progreso.
+
+<Note>
+  Enviar `completed` automáticamente establece `started: true` si no estaba ya marcado. No hace falta enviar `started` por separado cuando el ítem se va a completar de inmediato.
+</Note>
+
+---
+
+## Video
+
+El reproductor de video usa el componente nativo de la plataforma (`AVPlayer` en iOS, `ExoPlayer` en Android, `<video>` en web).
+
+- `item.url` apunta al asset en CDN (mp4 o HLS).
+- Controles: play/pause, barra de progreso scrubable, fullscreen, velocidad de reproducción (0.75x, 1x, 1.25x, 1.5x).
+- Al cerrar antes de completar, guardar la posición en segundos para reanudar desde ahí.
+
+---
+
+## Audio
+
+Player minimalista con fondo oscuro, imagen de portada del módulo, y waveform visualizer animado.
+
+- Controles: play/pause, retroceder 15s, avanzar 15s, barra de progreso.
+- **Reproducción en background** habilitada: al bloquear la pantalla, los controles siguen activos en el Centro de Control (iOS) y notificación persistente (Android).
+- Al salir del reproductor y volver, reanudar desde la posición guardada.
+
+---
+
+## Meditación
+
+Variante del reproductor de audio con una experiencia visual distinta diseñada para no interrumpir el estado mental del alumno.
+
+- **Fondo oscuro** (casi negro) con una animación respiratoria suave: un círculo que se expande durante la inhalación y se contrae durante la exhalación, sincronizado con la duración del audio.
+- **Pantalla bloqueada durante la sesión**: desactivar el gesto de swipe para volver hasta que el audio termine o el alumno lo cancele explícitamente con un botón de salida discreto.
+- No mostrar waveform ni barra de progreso scrubable — solo un indicador de tiempo transcurrido.
+- `completed` al **100%** — a diferencia de video y audio, la meditación requiere escucha completa.
+
+---
+
+## Quiz
+
+El schema en `item.body` define las preguntas. La shape es propiedad del backend; el frontend la consume sin inspeccionar claves específicas.
+
+### Componentes por `question.type`
+
+| `type` | Componente | Validación |
+| --- | --- | --- |
+| `single_choice` | Tarjetas seleccionables (radio). Una a la vez. | ≥ 1 seleccionada si `required: true` |
+| `multiple_choice` | Tarjetas con checkboxes. Múltiples permitidas. | ≥ 1 si `required: true` |
+| `scale` | Slider horizontal con etiquetas en los extremos. Valor inicial centrado. | Siempre tiene valor si `required: true` |
+| `text` | Área de texto libre con contador de caracteres. | No vacío si `required: true` |
+| `boolean` | Dos botones grandes: "Sí" / "No". | Siempre requiere selección |
+
+El botón "Enviar" permanece **desactivado** mientras haya preguntas requeridas sin respuesta.
+
+### Envío de respuestas
+
+```
+POST /v1/contents/:id/answers
+```
+
+```json
+{
+  "answers": {
+    "question_1": "option_b",
+    "question_2": ["option_a", "option_c"],
+    "question_3": 4
+  }
+}
+```
+
+Esta llamada **bloquea la navegación** al ítem siguiente hasta recibir éxito. Si falla por red, mostrar toast "Toca para reintentar" sin perder las respuestas.
+
+### Revisión de quiz completado
+
+Al abrir un quiz con `item.progress.completed: true`:
+
+1. Cargar respuestas previas con `GET /v1/contents/:id/answers`.
+2. Mostrar el quiz en modo **read-only** con las respuestas resaltadas.
+3. No mostrar el botón "Enviar".
+
+---
+
+## HTML
+
+Contenido editorial en `item.body` (markup HTML). Se renderiza con WebView (React Native) o directamente en el DOM (web).
+
+- El contenido debe estar sanitizado antes de renderizarse.
+- Detectar el 95% de scroll para disparar `completed`. Implementar con un IntersectionObserver (web) o un cálculo de `contentOffset` (React Native).
+- Si el contenido es más corto que la pantalla (no hace scroll), marcar `completed` automáticamente al abrir la pantalla tras 3 segundos de permanencia.

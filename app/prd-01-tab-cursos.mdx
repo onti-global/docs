@@ -1,0 +1,73 @@
+---
+title: "1.1 · Tab Cursos"
+sidebarTitle: "Tab Cursos"
+description: "Pantalla principal de descubrimiento. Muestra inscripciones activas con progreso y el catálogo completo de cursos publicados."
+icon: "grid-2"
+---
+
+Punto de entrada principal desde la navegación inferior (tab **Cursos**). Muestra las inscripciones activas del alumno con su progreso actual, y el catálogo completo de cursos publicados para explorar.
+
+## Endpoints
+
+```
+GET /v1/enrollments?status=active
+GET /v1/courses
+```
+
+Ambas llamadas se hacen **en paralelo** al montar la tab. El `cursor` de paginación de `/v1/courses` se gestiona con infinite scroll.
+
+## Estructura de la pantalla
+
+| Zona | Contenido | Origen |
+| --- | --- | --- |
+| Encabezado | Saludo personalizado + icono de notificaciones | Sesión activa (local) |
+| Buscador | Filtro local sobre `items[].title` — no hace llamada API | Client-side |
+| **Mis Cursos** | Tarjetas con portada, barra de progreso y badge de estado | `GET /v1/enrollments?status=active` |
+| **Explorar** | Grid de 2 columnas del catálogo publicado | `GET /v1/courses` |
+
+<Warning>
+  La sección "Mis Cursos" solo debe aparecer si el alumno tiene al menos una inscripción con `status = "active"`. No renderizar la sección vacía.
+</Warning>
+
+## Tarjeta de curso inscrito
+
+Cada tarjeta en **Mis Cursos** muestra:
+
+- Portada del curso (gradiente generado o imagen del curso)
+- `course.title`
+- Barra de progreso horizontal con porcentaje completado derivado de `GET /v1/courses/:id/progress`
+- Texto descriptivo: `{X}% completado · Módulo {N} de {M}`
+- Badge de estado: `Activo` / `Completado` / `Pausado`
+
+Al tocar la tarjeta, navegar directamente al [Reproductor](/app/prd-02-arquitectura) en el punto donde el alumno dejó — sin pasar por la pantalla de detalle.
+
+## Tarjeta de curso en catálogo
+
+Cada tarjeta en **Explorar** muestra:
+
+- Portada del curso
+- `course.title`
+- Si el alumno ya está inscrito: badge "Inscrito" superpuesto en la esquina
+
+Al tocar, navegar a [Detalle del Curso](/app/prd-01-detalle-curso).
+
+## Paginación
+
+La lista de cursos usa **cursor-based pagination** (`cursor` query param). Implementar infinite scroll:
+
+1. Al llegar al 80% del scroll, disparar `GET /v1/courses?cursor={cursor}` con el cursor de la respuesta anterior.
+2. Mientras carga, mostrar 2 skeleton cards al final de la lista.
+3. Cuando `cursor` en la respuesta es `null`, no hay más páginas — detener el scroll listener.
+
+## Estados de la pantalla
+
+| Estado | Comportamiento |
+| --- | --- |
+| **Cargando** | Skeleton shimmer. "Mis Cursos" muestra 2 esqueletos; "Explorar" muestra 4. |
+| **Sin inscripciones activas** | Ocultar la sección "Mis Cursos". Mostrar catálogo completo con un CTA destacado al primer curso. |
+| **Error de red** | Toast suave inferior: "No pudimos cargar los cursos. Toca para reintentar." — nunca pantalla de error completa. |
+| **Catálogo vacío** | Estado vacío en la zona Explorar: "Pronto habrá cursos disponibles para ti." |
+
+## Pull-to-refresh
+
+Disponible en toda la pantalla. Al hacer pull-to-refresh, invalidar ambas caches (`enrollments` y `courses`) y volver a cargar desde el inicio (reset de cursor).

@@ -152,6 +152,42 @@
         ]
       },
       {
+        "tab": "App",
+        "icon": "mobile",
+        "groups": [
+          {
+            "group": "Visión General",
+            "pages": ["app/index"]
+          },
+          {
+            "group": "PRD-01 · Catálogo e Inscripción",
+            "pages": [
+              "app/prd-01-catalogo-inscripcion",
+              "app/prd-01-tab-cursos",
+              "app/prd-01-detalle-curso",
+              "app/prd-01-cuestionario"
+            ]
+          },
+          {
+            "group": "PRD-02 · Reproductor de Curso",
+            "pages": [
+              "app/prd-02-reproductor-curso",
+              "app/prd-02-arquitectura",
+              "app/prd-02-tipos-contenido",
+              "app/prd-02-progreso"
+            ]
+          },
+          {
+            "group": "Especificaciones",
+            "pages": [
+              "app/animaciones",
+              "app/api-map",
+              "app/edge-cases"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Suprahumano",
         "icon": "sparkles",
         "groups": [
@@ -206,6 +242,61 @@
                 "pages": [
                   "api/v1/user/products"
                 ]
+              },
+              {
+                "dropdown": "courses",
+                "pages": [
+                  "api/v1/courses/index",
+                  {
+                    "group": "Catalog",
+                    "pages": [
+                      "api/v1/courses/course.get",
+                      "api/v1/courses/course.id.get"
+                    ]
+                  },
+                  {
+                    "group": "Enrollment",
+                    "pages": [
+                      "api/v1/courses/enrollment.post",
+                      "api/v1/courses/enrollment.get"
+                    ]
+                  },
+                  {
+                    "group": "Onboarding",
+                    "pages": [
+                      "api/v1/courses/course.id.onboarding.get",
+                      "api/v1/courses/course.id.onboarding.post"
+                    ]
+                  },
+                  {
+                    "group": "Assessment",
+                    "pages": [
+                      "api/v1/courses/assessment.id.get",
+                      "api/v1/courses/assessment.id.responses.post"
+                    ]
+                  },
+                  {
+                    "group": "Player",
+                    "pages": [
+                      "api/v1/courses/course.id.modules.get",
+                      "api/v1/courses/variant.id.contents.get"
+                    ]
+                  },
+                  {
+                    "group": "Progress",
+                    "pages": [
+                      "api/v1/courses/progress.post",
+                      "api/v1/courses/course.id.progress.get"
+                    ]
+                  },
+                  {
+                    "group": "Answers",
+                    "pages": [
+                      "api/v1/courses/content.id.answers.post",
+                      "api/v1/courses/content.id.answers.get"
+                    ]
+                  }
+                ]
               }
             ]
           },
@@ -227,6 +318,55 @@
                     "pages": [
                       "kpis-get-md"
                     ]
+                  },
+                  {
+                    "group": "courses — course builder",
+                    "pages": [
+                      "api/admin/v1/courses/course.create.post",
+                      "api/admin/v1/courses/course.update.put",
+                      "api/admin/v1/courses/module.create.post",
+                      "api/admin/v1/courses/variant.create.post",
+                      "api/admin/v1/courses/content.create.post",
+                      "api/admin/v1/courses/content.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — enrollment manager",
+                    "pages": [
+                      "api/admin/v1/courses/enrollment.list.get",
+                      "api/admin/v1/courses/enrollment.create.post",
+                      "api/admin/v1/courses/enrollment.update.patch"
+                    ]
+                  },
+                  {
+                    "group": "courses — assessment builder",
+                    "pages": [
+                      "api/admin/v1/courses/assessment.flow.create.post",
+                      "api/admin/v1/courses/assessment.question.create.post",
+                      "api/admin/v1/courses/assessment.question.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — assignment rules",
+                    "pages": [
+                      "api/admin/v1/courses/variant.policy.create.post",
+                      "api/admin/v1/courses/variant.rule.create.post",
+                      "api/admin/v1/courses/variant.rule.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — variant assignments",
+                    "pages": [
+                      "api/admin/v1/courses/assignment.list.get",
+                      "api/admin/v1/courses/assignment.update.put"
+                    ]
+                  },
+                  {
+                    "group": "courses — insights",
+                    "pages": [
+                      "api/admin/v1/courses/insight.student.get",
+                      "api/admin/v1/courses/insight.content.get"
+                    ]
                   }
                 ]
               }
@@ -237,7 +377,8 @@
       {
         "tab": "supabase",
         "pages": [
-          "conventions-md",
+          "agents/conventions-md",
+          "agents/courses-md",
           "schema"
         ]
       }

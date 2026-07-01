@@ -1,0 +1,103 @@
+---
+title: "assessment-questions-create"
+api: "v1"
+endpoint: "/admin/v1/assessment-flows/:id/questions"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Assessment Question
+
+Adds a question to an assessment flow. `options` is required for `single_choice` and `multiple_choice` types; must be omitted (or `null`) for all other types. Questions are displayed to learners in ascending `position` order.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The assessment flow id. |
+
+## Request body
+
+```json
+{
+  "type": "single_choice",
+  "question": "When a client is stuck, your first instinct is to…",
+  "options": [
+    { "value": "ask_questions", "label": "Ask open-ended questions" },
+    { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+    { "value": "share_experience", "label": "Share a relevant personal experience" }
+  ],
+  "position": 0,
+  "required": true
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `type` | `"single_choice" \| "multiple_choice" \| "scale" \| "text" \| "boolean"` | Yes | Answer format. |
+| `question` | `string` | Yes | Question text shown to the learner. |
+| `options` | `Option[] \| null` | Conditional | Required for `single_choice` and `multiple_choice`. Must be `null` for other types. |
+| `position` | `integer` | No | Ascending sort order within the flow. Defaults to `0`. |
+| `required` | `boolean` | No | Whether an answer is mandatory before submission. Defaults to `true`. |
+
+### Option object
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `string` | Yes | Machine-readable answer value. Stored in `student_assessment_responses.answers`. |
+| `label` | `string` | Yes | Human-readable label shown in the UI. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "id": "q1...aa",
+  "flow_id": "f3a1...88",
+  "type": "single_choice",
+  "question": "When a client is stuck, your first instinct is to…",
+  "options": [
+    { "value": "ask_questions", "label": "Ask open-ended questions" },
+    { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+    { "value": "share_experience", "label": "Share a relevant personal experience" }
+  ],
+  "position": 0,
+  "required": true,
+  "created_at": "2026-06-29T12:35:00Z",
+  "updated_at": "2026-06-29T12:35:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `type` or `question` is missing; `options` is missing for a choice type; or `options` is provided for a non-choice type. |
+| `404` | `flow_not_found` | Assessment flow does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "options is required for type single_choice"
+  }
+}
+```

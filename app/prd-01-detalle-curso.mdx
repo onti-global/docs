@@ -1,0 +1,83 @@
+---
+title: "1.2 · Detalle del Curso"
+sidebarTitle: "Detalle del Curso"
+description: "Pantalla de presentación del curso. Muestra la descripción, los módulos como vista previa y el CTA contextual según el estado del alumno."
+icon: "circle-info"
+---
+
+Pantalla de presentación antes de la inscripción. Muestra la descripción completa, metadatos del curso, la lista de módulos como vista previa, y el CTA contextual según el estado del alumno frente a ese curso.
+
+## Endpoints
+
+```
+GET  /v1/courses/:id
+GET  /v1/courses/:id/modules
+POST /v1/enrollments
+```
+
+`GET /v1/courses/:id/modules` se puede pre-cargar al entrar a la pantalla de detalle para acelerar la experiencia de inscripción.
+
+## Portada del curso
+
+La zona superior de la pantalla muestra una portada con gradiente o imagen, el nombre del curso grande, y opcionalmente el subtítulo o categoría. Al hacer scroll, la portada hace parallax o colapsa en un header compacto.
+
+## Metadatos del curso
+
+Mostrar pills de metadatos derivados de los módulos cargados:
+
+```
+{N} Módulos  ·  ~{H} horas  ·  Español
+```
+
+<Note>
+  La duración estimada no viene del API — derivarla del número de módulos o mostrarla solo si está disponible en los metadatos del curso.
+</Note>
+
+## CTA contextual
+
+El botón principal cambia según la combinación de `user_products` y el estado de la inscripción del alumno:
+
+| Condición | CTA | Acción |
+| --- | --- | --- |
+| Sin inscripción + acceso activo en `user_products` | **"Comenzar curso"** (acento sólido) | `POST /v1/enrollments` → navega a [Cuestionario](/app/prd-01-cuestionario) |
+| Inscrito + onboarding pendiente | **"Completar cuestionario"** (acento sólido) | Navega a `GET /v1/courses/:id/onboarding` |
+| Inscrito + en progreso | **"Continuar"** + texto del módulo actual | Navega al módulo/ítem donde el alumno dejó |
+| Inscrito + completado | **"Revisar curso"** (outline) | Abre el reproductor en modo revisión |
+| Sin acceso en `user_products` | **"Obtener acceso"** (neutro, outline) | Link externo a la página de compra |
+
+<Warning>
+  El botón "Obtener acceso" **nunca** debe disparar `POST /v1/enrollments`. Verificar siempre `user_products` antes de renderizar cualquier CTA de inscripción.
+</Warning>
+
+### Flujo de inscripción
+
+Al tocar "Comenzar curso":
+
+<Steps>
+  <Step title="POST /v1/enrollments">
+    Enviar `{ "course_id": "..." }`. La respuesta es `201 Created` (nueva inscripción) o `200 OK` (ya estaba inscrito — idempotente).
+  </Step>
+  <Step title="Navegar al Cuestionario">
+    En cualquier caso de éxito, navegar a la pantalla del [Cuestionario de Personalización](/app/prd-01-cuestionario).
+  </Step>
+</Steps>
+
+Si `POST /v1/enrollments` falla con `403`, significa que el alumno no tiene entitlement activo en `user_products`. Mostrar el error en un toast y cambiar el CTA a "Obtener acceso".
+
+## Lista de módulos pre-inscripción
+
+Los módulos se muestran en orden de `position` con un ícono de candado (🔒). Solo el primero aparece como "disponible". El resto se muestra bloqueado pero visible para que el alumno vea el recorrido completo.
+
+Al inscribirse, la **animación de desbloqueo** se dispara en cascada — los módulos aparecen uno a uno de arriba hacia abajo con fade + scale-up (ver [Animaciones](/app/animaciones)).
+
+<Warning>
+  Si `GET /v1/courses/:id/modules` retorna un array vacío, **no mostrar** la sección "Módulos". El curso puede no tener estructura publicada aún. Mostrar solo la descripción y el CTA.
+</Warning>
+
+## Estados de la pantalla
+
+| Estado | Comportamiento |
+| --- | --- |
+| **Cargando** | Skeleton en la portada, descripción y lista de módulos. |
+| **Error 404** | El curso no existe o no está publicado. Navegar atrás con toast: "Este curso ya no está disponible." |
+| **POST /v1/enrollments fallando** | Toast de error + mantener el CTA activo para reintentar. |

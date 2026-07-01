@@ -1,0 +1,110 @@
+---
+title: "assessment.id.responses.post"
+api: "v1"
+endpoint: "/v1/assessments/:id/responses"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Submit Assessment Response
+
+Submits or updates the learner's answers for an assessment flow. Re-submitting overwrites the existing response in place. A successful submission triggers the backend's variant assignment engine: rules are evaluated in priority order and the learner is assigned to the matching module variant.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The assessment flow id. |
+
+## Request body
+
+```json
+{
+  "answers": {
+    "q1...aa": "ask_questions",
+    "q2...bb": 4
+  }
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `answers` | `object` | Yes | Map of `question_id → answer_value`. All `required` questions must be present. |
+
+### Answer value types by question type
+
+| Question type | Answer value |
+| --- | --- |
+| `single_choice` | `string` — one of the option `value`s |
+| `multiple_choice` | `string[]` — one or more option `value`s |
+| `scale` | `integer` |
+| `text` | `string` |
+| `boolean` | `true \| false` |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "flow_id": "f3a1...88",
+  "answers": {
+    "q1...aa": "ask_questions",
+    "q2...bb": 4
+  },
+  "completed_at": "2026-06-29T11:00:00Z",
+  "assignments": [
+    {
+      "module_id": "m1...cc",
+      "variant_id": "v2...dd"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `flow_id` | `uuid` | The assessment flow id. |
+| `answers` | `object` | Stored answers, echoed back. |
+| `completed_at` | `timestamptz` | Submission timestamp (server-set). |
+| `assignments` | `Assignment[]` | Variant assignments triggered by this submission. Empty if no policy fired. |
+
+### Assignment object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `module_id` | `uuid` | The module the learner has been assigned to a variant for. |
+| `variant_id` | `uuid` | The assigned variant id. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_body` | `answers` is missing or a required question has no answer. |
+| `404` | `not_found` | Assessment flow does not exist. |
+| `422` | `invalid_answer` | An answer value is not valid for its question type. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_answer",
+    "message": "answer for question q2...bb must be an integer"
+  }
+}
+```

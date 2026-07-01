@@ -1,0 +1,79 @@
+---
+title: "enrollments-update"
+api: "v1"
+endpoint: "/admin/v1/enrollments/:id"
+method: "patch"
+client: "admin"
+tag: "api"
+---
+
+# PATCH Update Enrollment (Admin)
+
+Updates the status of an existing enrollment. Use this to manually mark a learner as completed, re-activate a dropped learner, or drop a learner administratively. `completed_at` is set automatically by the server when `status` transitions to `"completed"`.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The enrollment id. |
+
+## Request body
+
+```json
+{
+  "status": "completed"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `"active" \| "completed" \| "dropped"` | Yes | New enrollment status. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "id": "e9f0...12",
+  "user_id": "9c0a...77",
+  "course_id": "1aa2...d4",
+  "status": "completed",
+  "enrolled_at": "2026-06-29T10:00:00Z",
+  "completed_at": "2026-06-29T14:00:00Z",
+  "created_at": "2026-06-29T10:00:00Z",
+  "updated_at": "2026-06-29T14:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `status` is missing or not a valid enum value. |
+| `404` | `not_found` | Enrollment does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "status must be one of: active, completed, dropped"
+  }
+}
+```

@@ -1,0 +1,92 @@
+---
+title: "enrollment.post"
+api: "v1"
+endpoint: "/v1/enrollments"
+method: "post"
+client: "apps"
+tag: "api"
+---
+
+# POST Enroll in Course
+
+Enrolls the authenticated learner in a course. The learner must have an active entitlement for the course (`user_products` with `product_kind = "course"` and `status = "active"`). Duplicate enrollment attempts return the existing enrollment unchanged.
+
+## Authentication
+
+- Requires a valid Supabase Auth session (`Authorization: Bearer <token>`).
+- Uses a Supabase client scoped to the caller's JWT; all reads and writes are enforced by Row Level Security (RLS).
+- The `user_id` is taken from the JWT — never from the request body.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Request body
+
+```json
+{
+  "course_id": "1aa2...d4"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `course_id` | `uuid` | Yes | The course to enroll in. |
+
+## Response body
+
+`201 Created` — new enrollment. `200 OK` — learner was already enrolled (idempotent).
+
+```json
+{
+  "id": "e9f0...12",
+  "user_id": "9c0a...77",
+  "course_id": "1aa2...d4",
+  "status": "active",
+  "enrolled_at": "2026-06-29T10:00:00Z",
+  "completed_at": null,
+  "created_at": "2026-06-29T10:00:00Z",
+  "updated_at": "2026-06-29T10:00:00Z"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Enrollment id. |
+| `user_id` | `uuid` | Authenticated user id. |
+| `course_id` | `uuid` | Course the learner is enrolled in. |
+| `status` | `"active" \| "completed" \| "dropped"` | Current enrollment lifecycle state. |
+| `enrolled_at` | `timestamptz` | When the learner first enrolled. |
+| `completed_at` | `timestamptz \| null` | Set when `status` transitions to `"completed"`. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `400` | `invalid_body` | `course_id` is missing or not a valid UUID. |
+| `403` | `no_entitlement` | The learner does not have an active entitlement for this course. |
+| `404` | `course_not_found` | Course does not exist or is not published. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "no_entitlement",
+    "message": "no active entitlement found for this course"
+  }
+}
+```
+
+## Notes
+
+- Enrollment `status` starts as `"active"`. Transitions to `"completed"` or `"dropped"` are managed by backend logic, not by this endpoint.
+- Creating an enrollment for a course the learner has `"dropped"` reactivates the existing row (sets `status` back to `"active"`).

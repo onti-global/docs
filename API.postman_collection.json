@@ -1,0 +1,1566 @@
+{
+  "info": {
+    "_postman_id": "5c8f44f8-74ae-424d-a70e-960bb2327a17",
+    "name": "API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "55929624",
+    "_collection_link": "https://go.postman.co/collection/55929624-5c8f44f8-74ae-424d-a70e-960bb2327a17?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "v1",
+      "item": [
+        {
+          "name": "user",
+          "item": [
+            {
+              "name": "Product",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{host}}/v1/user/product",
+                  "host": [
+                    "{{host}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "user",
+                    "product"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "courses",
+          "item": [
+            {
+              "name": "Catalog",
+              "item": [
+                {
+                  "name": "List Courses",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/courses",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Get Course",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/courses/:id",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses",
+                        ":id"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Enrollment",
+              "item": [
+                {
+                  "name": "Get Enrollments",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/enrollments",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "enrollments"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Enroll in Course",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"course_id\": \"\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/v1/enrollments",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "enrollments"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Onboarding",
+              "item": [
+                {
+                  "name": "Get Course Onboarding",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/courses/:id/onboarding",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses",
+                        ":id",
+                        "onboarding"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Submit Course Onboarding",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"answers\": {\n        \"<question_id>\": \"<answer_value>\"\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/v1/courses/:id/onboarding",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses",
+                        ":id",
+                        "onboarding"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Assessment",
+              "item": [
+                {
+                  "name": "Get Assessment",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/assessments/:id",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "assessments",
+                        ":id"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Submit Assessment Response",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"answers\": {\n        \"<question_id>\": \"<answer_value>\"\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/v1/assessments/:id/responses",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "assessments",
+                        ":id",
+                        "responses"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Player",
+              "item": [
+                {
+                  "name": "Get Course Modules",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/courses/:id/modules",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses",
+                        ":id",
+                        "modules"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Get Variant Contents",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/variants/:id/contents",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "variants",
+                        ":id",
+                        "contents"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Progress",
+              "item": [
+                {
+                  "name": "Submit Progress",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"content_id\": \"\",\n    \"event\": \"completed\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/v1/progress",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "progress"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Get Course Progress",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/courses/:id/progress",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "courses",
+                        ":id",
+                        "progress"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Answers",
+              "item": [
+                {
+                  "name": "Get Content Answers",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/v1/contents/:id/answers",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "contents",
+                        ":id",
+                        "answers"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Submit Content Answers",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"answers\": {}\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/v1/contents/:id/answers",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "v1",
+                        "contents",
+                        ":id",
+                        "answers"
+                      ],
+                      "variable": [
+                        {
+                          "key": "id",
+                          "value": ""
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              "const supabaseUrl = pm.environment.get(\"SUPABASE_URL\");",
+              "const anonKey = pm.environment.get(\"SUPABASE_ANON_KEY\");",
+              "const email = pm.environment.get(\"AUTH_EMAIL\");",
+              "const password = pm.environment.get(\"AUTH_PASSWORD\");",
+              "",
+              "if (!supabaseUrl || !anonKey || !email || !password) {",
+              "  throw new Error(",
+              "    \"Missing env vars. Required: SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_EMAIL, AUTH_PASSWORD\"",
+              "  );",
+              "}",
+              "",
+              "const now = Math.floor(Date.now() / 1000);",
+              "const cachedToken = pm.environment.get(\"BEARER_TOKEN\");",
+              "const cachedExp = Number(pm.environment.get(\"BEARER_TOKEN_EXP\") || \"0\");",
+              "",
+              "// Reuse token if still valid (60s safety window)",
+              "if (cachedToken && cachedExp > now + 60) {",
+              "  pm.environment.set(\"AUTH_HEADER\", `Bearer ${cachedToken}`);",
+              "  pm.request.headers.upsert({",
+              "    key: \"Authorization\",",
+              "    value: `Bearer ${cachedToken}`,",
+              "  });",
+              "} else {",
+              "  pm.sendRequest(",
+              "    {",
+              "      url: `${supabaseUrl}/auth/v1/token?grant_type=password`,",
+              "      method: \"POST\",",
+              "      header: {",
+              "        apikey: anonKey,",
+              "        \"Content-Type\": \"application/json\",",
+              "      },",
+              "      body: {",
+              "        mode: \"raw\",",
+              "        raw: JSON.stringify({ email, password }),",
+              "      },",
+              "    },",
+              "    function (err, res) {",
+              "      if (err) {",
+              "        throw err;",
+              "      }",
+              "",
+              "      if (!res || res.code >= 400) {",
+              "        throw new Error(`Token request failed: ${res ? res.text() : \"no response\"}`);",
+              "      }",
+              "",
+              "      const json = res.json();",
+              "      const accessToken = json.access_token;",
+              "      const expiresIn = Number(json.expires_in || 3600);",
+              "",
+              "      if (!accessToken) {",
+              "        throw new Error(\"No access_token in response\");",
+              "      }",
+              "",
+              "      const exp = Math.floor(Date.now() / 1000) + expiresIn;",
+              "",
+              "      pm.environment.set(\"BEARER_TOKEN\", accessToken);",
+              "      pm.environment.set(\"BEARER_TOKEN_EXP\", String(exp));",
+              "      pm.environment.set(\"AUTH_HEADER\", `Bearer ${accessToken}`);",
+              "",
+              "      pm.request.headers.upsert({",
+              "        key: \"Authorization\",",
+              "        value: `Bearer ${accessToken}`,",
+              "      });",
+              "    }",
+              "  );",
+              "}"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {},
+            "exec": [
+              ""
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "internal",
+      "item": [
+        {
+          "name": "v1",
+          "item": [
+            {
+              "name": "billing",
+              "item": [
+                {
+                  "name": "Checkout",
+                  "request": {
+                    "auth": {
+                      "type": "apikey",
+                      "apikey": [
+                        {
+                          "key": "value",
+                          "value": "{{BILLING_API_KEY}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "key",
+                          "value": "x-api-key",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"products\": [\n        {\n            \"billing_product_id\": \"73094f11-ef5d-4a25-bebc-114767002c20\",\n            \"billing_price_id\": \"d517c923-89fd-4d4a-953d-1c5bfc39f190\",\n            \"quantity\": 1,\n            \"coupon\": null\n        }\n    ],\n    \"customer_email\": \"buyer@example.com\",\n    \"success_url\": \"https://app.onti.global/billing/success?session_id={CHECKOUT_SESSION_ID}\",\n    \"cancel_url\": \"https://app.onti.global/billing/cancel\",\n    \"metadata\": {\n        \"campaign\": \"spring-2026\"\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/internal/v1/billing/checkout",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "billing",
+                        "checkout"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Webhook",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"id\": \"evt_1TjixFCZaBXPwwmx9HqG8ctY\",\n  \"object\": \"event\",\n  \"api_version\": \"2026-05-27.dahlia\",\n  \"created\": 1781800692,\n  \"data\": {\n    \"object\": {\n      \"id\": \"in_1TjixBCZaBXPwwmxgVCkZnTG\",\n      \"object\": \"invoice\",\n      \"account_country\": \"MX\",\n      \"account_name\": \"Onti sandbox\",\n      \"account_tax_ids\": null,\n      \"amount_due\": 2000,\n      \"amount_overpaid\": 0,\n      \"amount_paid\": 2000,\n      \"amount_remaining\": 0,\n      \"amount_shipping\": 0,\n      \"application\": null,\n      \"attempt_count\": 1,\n      \"attempted\": true,\n      \"auto_advance\": false,\n      \"automatic_tax\": {\n        \"disabled_reason\": null,\n        \"enabled\": false,\n        \"liability\": null,\n        \"provider\": null,\n        \"status\": null\n      },\n      \"automatically_finalizes_at\": null,\n      \"billing_reason\": \"manual\",\n      \"collection_method\": \"charge_automatically\",\n      \"created\": 1781800689,\n      \"currency\": \"usd\",\n      \"custom_fields\": null,\n      \"customer\": \"cus_UjBJzdSQDjLTXC\",\n      \"customer_account\": null,\n      \"customer_address\": null,\n      \"customer_email\": null,\n      \"customer_name\": null,\n      \"customer_phone\": null,\n      \"customer_shipping\": null,\n      \"customer_tax_exempt\": \"none\",\n      \"customer_tax_ids\": [],\n      \"default_payment_method\": null,\n      \"default_source\": null,\n      \"default_tax_rates\": [],\n      \"description\": \"(created by Stripe CLI)\",\n      \"discounts\": [],\n      \"due_date\": null,\n      \"effective_at\": 1781800690,\n      \"ending_balance\": 0,\n      \"footer\": null,\n      \"from_invoice\": null,\n      \"hosted_invoice_url\": \"https://invoice.stripe.com/i/acct_1ThBPuCZaBXPwwmx/test_YWNjdF8xVGhCUHVDWmFCWFB3d214LF9VakJKTENlRFRlYzNEVEJ5TzZCRHk1Y0taSkFkelo5LDE3MjM0MTQ5Mw0200zVZtLrOS?s=ap\",\n      \"invoice_pdf\": \"https://pay.stripe.com/invoice/acct_1ThBPuCZaBXPwwmx/test_YWNjdF8xVGhCUHVDWmFCWFB3d214LF9VakJKTENlRFRlYzNEVEJ5TzZCRHk1Y0taSkFkelo5LDE3MjM0MTQ5Mw0200zVZtLrOS/pdf?s=ap\",\n      \"issuer\": {\n        \"type\": \"self\"\n      },\n      \"last_finalization_error\": null,\n      \"latest_revision\": null,\n      \"lines\": {\n        \"object\": \"list\",\n        \"data\": [\n          {\n            \"id\": \"il_1TjixBCZaBXPwwmxPVwDXAvL\",\n            \"object\": \"line_item\",\n            \"amount\": 2000,\n            \"currency\": \"usd\",\n            \"description\": \"(created by Stripe CLI)\",\n            \"discount_amounts\": [],\n            \"discountable\": true,\n            \"discounts\": [],\n            \"invoice\": \"in_1TjixBCZaBXPwwmxgVCkZnTG\",\n            \"livemode\": false,\n            \"metadata\": {},\n            \"parent\": {\n              \"invoice_item_details\": {\n                \"invoice_item\": \"ii_1TjixBCZaBXPwwmx0DJUbNWC\",\n                \"proration\": false,\n                \"proration_details\": {\n                  \"credited_items\": null\n                },\n                \"subscription\": null\n              },\n              \"subscription_item_details\": null,\n              \"type\": \"invoice_item_details\"\n            },\n            \"period\": {\n              \"end\": 1781800689,\n              \"start\": 1781800689\n            },\n            \"pretax_credit_amounts\": [],\n            \"pricing\": {\n              \"price_details\": {\n                \"price\": \"price_1TjikBCZaBXPwwmx07fgrVIK\",\n                \"product\": \"prod_UjB6sMN0sh0DjR\"\n              },\n              \"type\": \"price_details\",\n              \"unit_amount_decimal\": \"2000\"\n            },\n            \"quantity\": 1,\n            \"quantity_decimal\": \"1\",\n            \"subtotal\": 2000,\n            \"taxes\": []\n          }\n        ],\n        \"has_more\": false,\n        \"total_count\": 1,\n        \"url\": \"/v1/invoices/in_1TjixBCZaBXPwwmxgVCkZnTG/lines\"\n      },\n      \"livemode\": false,\n      \"metadata\": {},\n      \"next_payment_attempt\": null,\n      \"number\": \"YSC0AQDN-0001\",\n      \"on_behalf_of\": null,\n      \"parent\": null,\n      \"payment_settings\": {\n        \"default_mandate\": null,\n        \"payment_method_options\": null,\n        \"payment_method_types\": null\n      },\n      \"period_end\": 1781800689,\n      \"period_start\": 1781800689,\n      \"post_payment_credit_notes_amount\": 0,\n      \"pre_payment_credit_notes_amount\": 0,\n      \"receipt_number\": null,\n      \"rendering\": {\n        \"amount_tax_display\": null,\n        \"pdf\": {\n          \"page_size\": \"letter\"\n        },\n        \"template\": null,\n        \"template_version\": null\n      },\n      \"shipping_cost\": null,\n      \"shipping_details\": null,\n      \"starting_balance\": 0,\n      \"statement_descriptor\": null,\n      \"status\": \"paid\",\n      \"status_transitions\": {\n        \"finalized_at\": 1781800690,\n        \"marked_uncollectible_at\": null,\n        \"paid_at\": 1781800690,\n        \"voided_at\": null\n      },\n      \"subtotal\": 2000,\n      \"subtotal_excluding_tax\": 2000,\n      \"test_clock\": null,\n      \"total\": 2000,\n      \"total_discount_amounts\": [],\n      \"total_excluding_tax\": 2000,\n      \"total_pretax_credit_amounts\": [],\n      \"total_taxes\": [],\n      \"webhooks_delivered_at\": null\n    }\n  },\n  \"livemode\": false,\n  \"pending_webhooks\": 1,\n  \"request\": {\n    \"id\": \"req_rKjrAH7QATLxOM\",\n    \"idempotency_key\": \"58b95157-13e7-4a8f-8f6e-531d923faef8\"\n  },\n  \"type\": \"invoice.payment_succeeded\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/internal/v1/billing/webhook",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "billing",
+                        "webhook"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "admin",
+              "item": [
+                {
+                  "name": "KPIs",
+                  "request": {
+                    "auth": {
+                      "type": "apikey",
+                      "apikey": [
+                        {
+                          "key": "value",
+                          "value": "{{BILLING_API_KEY}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "key",
+                          "value": "x-api-key",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/internal/v1/admin/kpis",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "admin",
+                        "kpis"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Login",
+                  "request": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"email\": \"{{ADMIN_EMAIL}}\",\n    \"password\": \"{{ADMIN_PASSWORD}}\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/internal/v1/admin/login",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "admin",
+                        "login"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {},
+                    "exec": [
+                      "const supabaseUrl = pm.environment.get(\"SUPABASE_URL\");",
+                      "const anonKey = pm.environment.get(\"SUPABASE_ANON_KEY\");",
+                      "const email = pm.environment.get(\"ADMIN_EMAIL\");",
+                      "const password = pm.environment.get(\"ADMIN_PASSWORD\");",
+                      "",
+                      "if (!supabaseUrl || !anonKey || !email || !password) {",
+                      "  throw new Error(",
+                      "    \"Missing env vars. Required: SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_EMAIL, AUTH_PASSWORD\"",
+                      "  );",
+                      "}",
+                      "",
+                      "const now = Math.floor(Date.now() / 1000);",
+                      "const cachedToken = pm.environment.get(\"ADMIN_BEARER_TOKEN\");",
+                      "const cachedExp = Number(pm.environment.get(\"ADMIN_BEARER_TOKEN_EXP\") || \"0\");",
+                      "",
+                      "// Reuse token if still valid (60s safety window)",
+                      "if (cachedToken && cachedExp > now + 60) {",
+                      "  pm.environment.set(\"ADMIN_AUTH_HEADER\", `Bearer ${cachedToken}`);",
+                      "  pm.request.headers.upsert({",
+                      "    key: \"Authorization\",",
+                      "    value: `Bearer ${cachedToken}`,",
+                      "  });",
+                      "} else {",
+                      "  pm.sendRequest(",
+                      "    {",
+                      "      url: `${supabaseUrl}/auth/v1/token?grant_type=password`,",
+                      "      method: \"POST\",",
+                      "      header: {",
+                      "        apikey: anonKey,",
+                      "        \"Content-Type\": \"application/json\",",
+                      "      },",
+                      "      body: {",
+                      "        mode: \"raw\",",
+                      "        raw: JSON.stringify({ email, password }),",
+                      "      },",
+                      "    },",
+                      "    function (err, res) {",
+                      "      if (err) {",
+                      "        throw err;",
+                      "      }",
+                      "",
+                      "      if (!res || res.code >= 400) {",
+                      "        throw new Error(`Token request failed: ${res ? res.text() : \"no response\"}`);",
+                      "      }",
+                      "",
+                      "      const json = res.json();",
+                      "      const accessToken = json.access_token;",
+                      "      const expiresIn = Number(json.expires_in || 3600);",
+                      "",
+                      "      if (!accessToken) {",
+                      "        throw new Error(\"No access_token in response\");",
+                      "      }",
+                      "",
+                      "      const exp = Math.floor(Date.now() / 1000) + expiresIn;",
+                      "",
+                      "      pm.environment.set(\"ADMIN_BEARER_TOKEN\", accessToken);",
+                      "      pm.environment.set(\"ADMIN_BEARER_TOKEN_EXP\", String(exp));",
+                      "      pm.environment.set(\"ADMIN_AUTH_HEADER\", `Bearer ${accessToken}`);",
+                      "",
+                      "      pm.request.headers.upsert({",
+                      "        key: \"Authorization\",",
+                      "        value: `Bearer ${accessToken}`,",
+                      "      });",
+                      "    }",
+                      "  );",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {},
+                    "exec": [
+                      ""
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "courses",
+              "item": [
+                {
+                  "name": "Course Builder",
+                  "item": [
+                    {
+                      "name": "Create Course",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"title\": \"Advanced Facilitation\",\n    \"description\": \"A deep dive into group facilitation techniques.\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/courses",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "courses"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Course",
+                      "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"title\": \"Advanced Facilitation — Revised\",\n    \"description\": \"Updated description.\",\n    \"status\": \"published\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/courses/:id",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "courses",
+                            ":id"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Module",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"title\": \"Module 3 — Emotional Regulation\",\n    \"description\": \"Techniques for managing emotional state in coaching sessions.\",\n    \"position\": 2\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/courses/:id/modules",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "courses",
+                            ":id",
+                            "modules"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Variant",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"name\": \"High-Autonomy Path\",\n    \"description\": \"For learners with prior facilitation experience.\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/modules/:id/variants",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "modules",
+                            ":id",
+                            "variants"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Content",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"type\": \"video\",\n    \"title\": \"Introduction to Emotional Regulation\",\n    \"url\": \"https://cdn.example.com/videos/intro-er.mp4\",\n    \"body\": null,\n    \"position\": 0\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/variants/:id/contents",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "variants",
+                            ":id",
+                            "contents"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Content",
+                      "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"title\": \"Introduction to Emotional Regulation — Updated\",\n    \"url\": \"https://cdn.example.com/videos/intro-er-v2.mp4\",\n    \"position\": 1\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/contents/:id",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "contents",
+                            ":id"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Enrollment Manager",
+                  "item": [
+                    {
+                      "name": "List Course Enrollments",
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{host}}/admin/v1/courses/:id/enrollments",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "courses",
+                            ":id",
+                            "enrollments"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Enrollment",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"user_id\": \"\",\n    \"course_id\": \"\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/enrollments",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "enrollments"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Enrollment",
+                      "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"status\": \"completed\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/enrollments/:id",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "enrollments",
+                            ":id"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Assessment Builder",
+                  "item": [
+                    {
+                      "name": "Create Assessment Flow",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"title\": \"Coaching Style Assessment\",\n    \"description\": \"Determines the optimal content variant for each learner.\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/assessment-flows",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "assessment-flows"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Assessment Question",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"type\": \"single_choice\",\n    \"question\": \"When a client is stuck, your first instinct is to…\",\n    \"options\": [\n        { \"value\": \"ask_questions\", \"label\": \"Ask open-ended questions\" },\n        { \"value\": \"offer_tools\", \"label\": \"Offer a concrete tool or framework\" },\n        { \"value\": \"share_experience\", \"label\": \"Share a relevant personal experience\" }\n    ],\n    \"position\": 0,\n    \"required\": true\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/assessment-flows/:id/questions",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "assessment-flows",
+                            ":id",
+                            "questions"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Assessment Question",
+                      "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"question\": \"Updated question text.\",\n    \"options\": [\n        { \"value\": \"ask_questions\", \"label\": \"Ask open-ended questions\" },\n        { \"value\": \"offer_tools\", \"label\": \"Offer a concrete tool or framework\" },\n        { \"value\": \"share_experience\", \"label\": \"Share a relevant personal experience\" },\n        { \"value\": \"listen_first\", \"label\": \"Just listen without interrupting\" }\n    ],\n    \"position\": 1,\n    \"required\": false\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/assessment-flows/:id/questions/:qid",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "assessment-flows",
+                            ":id",
+                            "questions",
+                            ":qid"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            },
+                            {
+                              "key": "qid",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Assignment Rules",
+                  "item": [
+                    {
+                      "name": "Create Variant Policy",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"name\": \"Module 1 Variant Assignment\",\n    \"assessment_flow_id\": \"\",\n    \"course_id\": null,\n    \"module_id\": \"\",\n    \"trigger_point\": \"before_module\",\n    \"default_variant_id\": null\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/variant-policies",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "variant-policies"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Create Rule",
+                      "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"name\": \"Experienced learners → High-Autonomy\",\n    \"target_variant_id\": \"\",\n    \"priority\": 10,\n    \"match_mode\": \"all\",\n    \"conditions\": [\n        {\n            \"question_id\": \"\",\n            \"operator\": \"in\",\n            \"expected\": [\"intermediate\", \"advanced\"]\n        }\n    ]\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/variant-policies/:id/rules",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "variant-policies",
+                            ":id",
+                            "rules"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Update Rule",
+                      "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"priority\": 5,\n    \"conditions\": [\n        {\n            \"question_id\": \"\",\n            \"operator\": \"in\",\n            \"expected\": [\"intermediate\", \"advanced\"]\n        },\n        {\n            \"question_id\": \"\",\n            \"operator\": \"gte\",\n            \"expected\": 4\n        }\n    ]\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/variant-policies/:id/rules/:rid",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "variant-policies",
+                            ":id",
+                            "rules",
+                            ":rid"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            },
+                            {
+                              "key": "rid",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Variant Assignments",
+                  "item": [
+                    {
+                      "name": "List Assignments",
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{host}}/admin/v1/courses/:id/assignments",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "courses",
+                            ":id",
+                            "assignments"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Override Assignment",
+                      "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n    \"variant_id\": \"\"\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{host}}/admin/v1/assignments/:id",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "assignments",
+                            ":id"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Student Insights",
+                  "item": [
+                    {
+                      "name": "Get Student Insights",
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{host}}/admin/v1/students/:id/insights",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "students",
+                            ":id",
+                            "insights"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Get Content Insights",
+                      "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                          "raw": "{{host}}/admin/v1/contents/:id/insights",
+                          "host": [
+                            "{{host}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "v1",
+                            "contents",
+                            ":id",
+                            "insights"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": ""
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                }
+              ],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {},
+                    "exec": [
+                      "const supabaseUrl = pm.environment.get(\"SUPABASE_URL\");",
+                      "const anonKey = pm.environment.get(\"SUPABASE_ANON_KEY\");",
+                      "const email = pm.environment.get(\"ADMIN_EMAIL\");",
+                      "const password = pm.environment.get(\"ADMIN_PASSWORD\");",
+                      "",
+                      "if (!supabaseUrl || !anonKey || !email || !password) {",
+                      "  throw new Error(",
+                      "    \"Missing env vars. Required: SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, ADMIN_PASSWORD\"",
+                      "  );",
+                      "}",
+                      "",
+                      "const now = Math.floor(Date.now() / 1000);",
+                      "const cachedToken = pm.environment.get(\"ADMIN_BEARER_TOKEN\");",
+                      "const cachedExp = Number(pm.environment.get(\"ADMIN_BEARER_TOKEN_EXP\") || \"0\");",
+                      "",
+                      "// Reuse token if still valid (60s safety window)",
+                      "if (cachedToken && cachedExp > now + 60) {",
+                      "  pm.environment.set(\"ADMIN_AUTH_HEADER\", `Bearer ${cachedToken}`);",
+                      "  pm.request.headers.upsert({",
+                      "    key: \"Authorization\",",
+                      "    value: `Bearer ${cachedToken}`,",
+                      "  });",
+                      "} else {",
+                      "  pm.sendRequest(",
+                      "    {",
+                      "      url: `${supabaseUrl}/auth/v1/token?grant_type=password`,",
+                      "      method: \"POST\",",
+                      "      header: {",
+                      "        apikey: anonKey,",
+                      "        \"Content-Type\": \"application/json\",",
+                      "      },",
+                      "      body: {",
+                      "        mode: \"raw\",",
+                      "        raw: JSON.stringify({ email, password }),",
+                      "      },",
+                      "    },",
+                      "    function (err, res) {",
+                      "      if (err) {",
+                      "        throw err;",
+                      "      }",
+                      "",
+                      "      if (!res || res.code >= 400) {",
+                      "        throw new Error(`Token request failed: ${res ? res.text() : \"no response\"}`);",
+                      "      }",
+                      "",
+                      "      const json = res.json();",
+                      "      const accessToken = json.access_token;",
+                      "      const expiresIn = Number(json.expires_in || 3600);",
+                      "",
+                      "      if (!accessToken) {",
+                      "        throw new Error(\"No access_token in response\");",
+                      "      }",
+                      "",
+                      "      const exp = Math.floor(Date.now() / 1000) + expiresIn;",
+                      "",
+                      "      pm.environment.set(\"ADMIN_BEARER_TOKEN\", accessToken);",
+                      "      pm.environment.set(\"ADMIN_BEARER_TOKEN_EXP\", String(exp));",
+                      "      pm.environment.set(\"ADMIN_AUTH_HEADER\", `Bearer ${accessToken}`);",
+                      "",
+                      "      pm.request.headers.upsert({",
+                      "        key: \"Authorization\",",
+                      "        value: `Bearer ${accessToken}`,",
+                      "      });",
+                      "    }",
+                      "  );",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {},
+                    "exec": [
+                      ""
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{host}}/health",
+          "host": [
+            "{{host}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+---
+title: "assignments-list"
+api: "v1"
+endpoint: "/admin/v1/courses/:id/assignments"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Variant Assignments (Admin)
+
+Returns all variant assignments for a course — one row per (learner, module) pair. Shows which variant each learner is assigned to for each module, and when the assignment was made.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `user_id` | `uuid` | No | Filter to a single learner. |
+| `module_id` | `uuid` | No | Filter to a single module. |
+| `limit` | `integer` | No | Max results per page. Defaults to `50`. Max `200`. |
+| `cursor` | `string` | No | Pagination cursor from a previous response. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "a1...mm",
+      "user_id": "9c0a...77",
+      "module_id": "m1...cc",
+      "variant_id": "v2...dd",
+      "assigned_at": "2026-06-29T10:05:00Z",
+      "learner": {
+        "user_id": "9c0a...77",
+        "display_name": "Ana García"
+      },
+      "module": {
+        "id": "m1...cc",
+        "title": "Module 1 — The Coaching Mindset"
+      },
+      "variant": {
+        "id": "v2...dd",
+        "name": "Standard Path"
+      }
+    }
+  ],
+  "cursor": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Assignment[]` | Variant assignments matching the filter. |
+| `cursor` | `string \| null` | Pagination cursor. `null` when no more results. |
+
+### Assignment object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Assignment id (`course_alumni_assignments.id`). |
+| `user_id` | `uuid` | Learner user id. |
+| `module_id` | `uuid` | Module id. |
+| `variant_id` | `uuid` | Assigned variant id. |
+| `assigned_at` | `timestamptz` | When the assignment was made. |
+| `learner` | `object` | Hydrated learner snapshot (user_id, display_name). |
+| `module` | `object` | Hydrated module snapshot (id, title). |
+| `variant` | `object` | Hydrated variant snapshot (id, name). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "course_not_found",
+    "message": "course not found"
+  }
+}
+```

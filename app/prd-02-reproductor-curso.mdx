@@ -1,0 +1,38 @@
+---
+title: "PRD-02 · Reproductor de Curso"
+description: "Cubre el reproductor modal de contenido, los tipos de ítem, el seguimiento de progreso y las especificaciones técnicas de animación."
+icon: "play"
+---
+
+El reproductor es una pantalla modal fullscreen que encapsula todo el recorrido de un curso. Una vez dentro, la app desaparece — solo existe el contenido.
+
+<CardGroup cols={3}>
+  <Card title="Arquitectura" icon="sitemap" href="/app/prd-02-arquitectura">
+    Jerarquía de datos, orden de carga y lógica de reanudación del reproductor.
+  </Card>
+  <Card title="Tipos de contenido" icon="layers" href="/app/prd-02-tipos-contenido">
+    Video, audio, meditación, quiz y HTML — componentes y triggers de progreso.
+  </Card>
+  <Card title="Progreso" icon="chart-line" href="/app/prd-02-progreso">
+    Tres niveles de tracking, actualizaciones optimistas y celebración de hitos.
+  </Card>
+</CardGroup>
+
+## Historias de usuario
+
+| Persona | Historia |
+| --- | --- |
+| Alumno | Quiero consumir videos, audios y meditaciones sin fricción, con controles intuitivos y sin abandonar el flujo del curso. |
+| Alumno | Quiero ver mi progreso en tiempo real — por curso y por módulo — para sentir el avance y mantener la motivación. |
+| Alumno | Si cierro la app, quiero retomarla exactamente donde la dejé, sin tener que navegar de nuevo. |
+
+## Endpoints cubiertos
+
+```
+GET  /v1/courses/:id/modules
+GET  /v1/variants/:id/contents
+POST /v1/progress
+GET  /v1/courses/:id/progress
+POST /v1/contents/:id/answers
+GET  /v1/contents/:id/answers
+```

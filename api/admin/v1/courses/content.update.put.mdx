@@ -1,0 +1,85 @@
+---
+title: "contents-update"
+api: "v1"
+endpoint: "/admin/v1/contents/:id"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Update Content Item
+
+Updates a content item's title, URL, body, or position. All fields are optional — only provided fields are updated.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The content item id. |
+
+## Request body
+
+```json
+{
+  "title": "Introduction to Emotional Regulation — Updated",
+  "url": "https://cdn.example.com/videos/intro-er-v2.mp4",
+  "position": 1
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `title` | `string` | No | New title. Must be non-empty if provided. |
+| `url` | `string \| null` | No | New media URL. Pass `null` to clear. |
+| `body` | `string \| null` | No | New HTML or quiz JSON. Pass `null` to clear. |
+| `position` | `integer` | No | New sort order. |
+
+## Response body
+
+`200 OK` — returns the full updated content item.
+
+```json
+{
+  "id": "c3...jj",
+  "variant_id": "v3...ii",
+  "type": "video",
+  "title": "Introduction to Emotional Regulation — Updated",
+  "url": "https://cdn.example.com/videos/intro-er-v2.mp4",
+  "body": null,
+  "position": 1,
+  "created_at": "2026-06-29T12:20:00Z",
+  "updated_at": "2026-06-29T13:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | A provided field value is invalid (e.g. empty title). |
+| `404` | `not_found` | Content item does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_body",
+    "message": "title must be a non-empty string"
+  }
+}
+```

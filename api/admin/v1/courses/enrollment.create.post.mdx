@@ -1,0 +1,76 @@
+---
+title: "enrollments-create"
+api: "v1"
+endpoint: "/admin/v1/enrollments"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Create Enrollment (Admin)
+
+Manually enrolls a user in a course, bypassing entitlement checks. Used for admin-provisioned access (comps, gifted access, bulk onboarding). Duplicate attempts return the existing enrollment unchanged.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Request body
+
+```json
+{
+  "user_id": "9c0a...77",
+  "course_id": "1aa2...d4"
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `user_id` | `uuid` | Yes | The user to enroll. Must exist in `auth.users`. |
+| `course_id` | `uuid` | Yes | The course to enroll the user in. |
+
+## Response body
+
+`201 Created` — new enrollment. `200 OK` — user was already enrolled.
+
+```json
+{
+  "id": "e9f0...12",
+  "user_id": "9c0a...77",
+  "course_id": "1aa2...d4",
+  "status": "active",
+  "enrolled_at": "2026-06-29T10:00:00Z",
+  "completed_at": null,
+  "created_at": "2026-06-29T10:00:00Z",
+  "updated_at": "2026-06-29T10:00:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | `user_id` or `course_id` is missing or not a valid UUID. |
+| `404` | `user_not_found` | No user with that id exists. |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "user_not_found",
+    "message": "no user found with the provided user_id"
+  }
+}
+```

@@ -1,0 +1,60 @@
+---
+title: "App — Experiencia de Cursos"
+description: "Documentos de requerimientos de producto para la experiencia de cursos en la app Onti (iOS, Android, Web)."
+icon: "mobile"
+---
+
+La app Onti ofrece una experiencia de aprendizaje altamente personalizada. Cada alumno recibe un camino de contenido único, determinado por sus respuestas al cuestionario de onboarding, y puede consumir videos, audios, meditaciones y quizzes en un reproductor diseñado para minimizar la fricción.
+
+## PRDs en este directorio
+
+<CardGroup cols={2}>
+  <Card title="PRD-01 · Catálogo e Inscripción" icon="book-open" href="/app/prd-01-catalogo-inscripcion">
+    Tab Cursos, pantalla de detalle, cuestionario de personalización inicial y flujo de inscripción. Cubre los endpoints de catálogo, enrollment y onboarding.
+  </Card>
+  <Card title="PRD-02 · Reproductor de Curso" icon="play" href="/app/prd-02-reproductor-curso">
+    Arquitectura del reproductor, tipos de contenido (video, audio, meditación, quiz, HTML), seguimiento de progreso, animaciones y casos límite.
+  </Card>
+</CardGroup>
+
+## Plataformas
+
+| Plataforma | Framework | Notas |
+| --- | --- | --- |
+| iOS | React Native | Soporte para audio en background, haptics |
+| Android | React Native | Soporte para audio en background |
+| Web | React (web build) | Sin haptics; teclado navegable |
+
+## API Base
+
+Todos los endpoints están bajo `/v1/`. Requieren `Authorization: Bearer <token>` (Supabase Auth JWT).
+
+```
+GET  /v1/courses
+GET  /v1/courses/:id
+POST /v1/enrollments
+GET  /v1/enrollments
+GET  /v1/courses/:id/onboarding
+POST /v1/courses/:id/onboarding
+GET  /v1/courses/:id/modules
+GET  /v1/variants/:id/contents
+POST /v1/progress
+GET  /v1/courses/:id/progress
+POST /v1/contents/:id/answers
+GET  /v1/contents/:id/answers
+```
+
+## Principios de diseño
+
+Cada decisión de interacción parte de estas cuatro ideas:
+
+| Principio | En práctica |
+| --- | --- |
+| **Personalizado, no genérico** | El alumno siempre ve _su_ ruta. Los módulos bloqueados se muestran de forma aspiracional, no como barreras. |
+| **Progreso siempre visible** | Anillos, barras y porcentajes en cada nivel (curso, módulo, ítem). La sensación de avance es el motor de retención. |
+| **Transiciones con intención** | Entrar a un módulo desliza el contenido hacia abajo; volver sube de regreso. Nunca un fade simple. |
+| **Cero interrupciones en el reproductor** | Una vez que el alumno inicia un ítem, la UI desaparece. Los controles emergen solo al tocar la pantalla. |
+
+<Note>
+  **Idioma:** Toda la UI está en español. Los textos del API (`title`, `description`) se muestran tal cual. Los errores del sistema se traducen y humanizan antes de mostrarse al usuario.
+</Note>

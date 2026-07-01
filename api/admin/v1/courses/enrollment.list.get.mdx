@@ -1,0 +1,99 @@
+---
+title: "enrollments-list"
+api: "v1"
+endpoint: "/admin/v1/courses/:id/enrollments"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Course Enrollments (Admin)
+
+Returns all enrollments for a course, optionally filtered by status. Includes basic learner identity for display in the dashboard.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `"active" \| "completed" \| "dropped"` | No | Filter by enrollment status. Omit to return all. |
+| `limit` | `integer` | No | Max results per page. Defaults to `50`. Max `200`. |
+| `cursor` | `string` | No | Pagination cursor from a previous response. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "e9f0...12",
+      "user_id": "9c0a...77",
+      "course_id": "1aa2...d4",
+      "status": "active",
+      "enrolled_at": "2026-06-29T10:00:00Z",
+      "completed_at": null,
+      "learner": {
+        "user_id": "9c0a...77",
+        "display_name": "Ana García",
+        "avatar_url": null
+      }
+    }
+  ],
+  "cursor": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Enrollment[]` | Enrollments matching the filter. |
+| `cursor` | `string \| null` | Pagination cursor. `null` when no more results. |
+
+### Enrollment object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Enrollment id. |
+| `user_id` | `uuid` | Learner's user id. |
+| `course_id` | `uuid` | Course id. |
+| `status` | `"active" \| "completed" \| "dropped"` | Enrollment lifecycle state. |
+| `enrolled_at` | `timestamptz` | When the learner enrolled. |
+| `completed_at` | `timestamptz \| null` | When completion was recorded. |
+| `learner` | `object` | Hydrated learner profile snapshot. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
+| `400` | `invalid_query_param` | `status` is not a valid enum value. |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "invalid_query_param",
+    "message": "status must be one of: active, completed, dropped"
+  }
+}
+```

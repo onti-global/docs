@@ -1,0 +1,108 @@
+---
+title: "variant-rules-update"
+api: "v1"
+endpoint: "/admin/v1/variant-policies/:id/rules/:rid"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Update Assignment Rule
+
+Updates an existing assignment rule. All fields are optional — only provided fields are updated.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The variant assignment policy id. |
+| `rid` | `uuid` | The rule id. |
+
+## Request body
+
+```json
+{
+  "priority": 5,
+  "conditions": [
+    {
+      "question_id": "q1...aa",
+      "operator": "in",
+      "expected": ["intermediate", "advanced"]
+    },
+    {
+      "question_id": "q2...bb",
+      "operator": "gte",
+      "expected": 4
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `name` | `string` | No | New rule name. |
+| `target_variant_id` | `uuid` | No | New target variant. |
+| `priority` | `integer` | No | New evaluation priority. |
+| `match_mode` | `"all" \| "any"` | No | New match mode. |
+| `conditions` | `Condition[]` | No | Replacement conditions array. Replaces the entire existing conditions list. |
+
+## Response body
+
+`200 OK` — returns the full updated rule.
+
+```json
+{
+  "id": "r1...ll",
+  "policy_id": "p1...kk",
+  "name": "Experienced learners → High-Autonomy",
+  "target_variant_id": "v3...ii",
+  "priority": 5,
+  "match_mode": "all",
+  "conditions": [
+    {
+      "question_id": "q1...aa",
+      "operator": "in",
+      "expected": ["intermediate", "advanced"]
+    },
+    {
+      "question_id": "q2...bb",
+      "operator": "gte",
+      "expected": 4
+    }
+  ],
+  "created_at": "2026-06-29T12:50:00Z",
+  "updated_at": "2026-06-29T13:10:00Z"
+}
+```
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `400` | `invalid_body` | A provided field value is invalid. |
+| `404` | `not_found` | Policy or rule does not exist, or rule does not belong to the policy. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "rule not found in this policy"
+  }
+}
+```

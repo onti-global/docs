@@ -1,0 +1,106 @@
+---
+title: "insights-by-content"
+api: "v1"
+endpoint: "/admin/v1/contents/:id/insights"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Content Insights
+
+Returns all insight memory records generated from a specific content item, across all learners. Useful for identifying content that consistently triggers confusion, breakthroughs, or strong emotional responses.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The content item id. |
+
+## Query parameters
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `status` | `"active" \| "stale" \| "archived"` | No | Filter by memory status. Defaults to `"active"`. |
+| `limit` | `integer` | No | Max results per page. Defaults to `50`. Max `200`. |
+| `cursor` | `string` | No | Pagination cursor from a previous response. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "items": [
+    {
+      "id": "i2...oo",
+      "user_id": "9c0a...77",
+      "content_id": "c1...ff",
+      "insight": "Learner showed strong resonance with the concept of presence — paused the video twice to journal.",
+      "data": {
+        "tags": ["presence", "engagement"],
+        "confidence": 0.92
+      },
+      "status": "active",
+      "created_at": "2026-06-28T10:00:00Z",
+      "updated_at": "2026-06-28T10:00:00Z"
+    }
+  ],
+  "cursor": null
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Insight[]` | Insight records from this content item. |
+| `cursor` | `string \| null` | Pagination cursor. `null` when no more results. |
+
+### Insight object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Insight id. |
+| `user_id` | `uuid` | Learner user id. |
+| `content_id` | `uuid` | The content item that generated this insight. |
+| `insight` | `string` | Free-form natural-language description. |
+| `data` | `object` | Structured metadata (tags, confidence, etc.). Shape is application-defined. |
+| `status` | `"active" \| "stale" \| "archived"` | Memory lifecycle state. |
+| `created_at` | `timestamptz` | When the insight was recorded. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
+| `400` | `invalid_query_param` | `status` is not a valid enum value. |
+| `404` | `content_not_found` | Content item does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "error": {
+    "code": "content_not_found",
+    "message": "content item not found"
+  }
+}
+```
+
+## Notes
+
+- `data.confidence` is a decimal in the range `0.0`–`1.0` (e.g. `0.92` = 92% confidence). Never a percentage string.

@@ -1,0 +1,69 @@
+---
+title: "Mapa de API"
+sidebarTitle: "Mapa de API"
+description: "Todos los endpoints consumidos por la experiencia de cursos, con pantalla de origen, momento de llamada y estrategia de caché."
+icon: "map"
+---
+
+Referencia completa de los 12 endpoints que consume la experiencia de cursos, con la pantalla que los dispara, cuándo exactamente se llaman, y la estrategia de caché recomendada.
+
+## Tabla completa
+
+| Endpoint | Pantalla | Cuándo se llama | Caché |
+| --- | --- | --- | --- |
+| `GET /v1/courses` | Tab Cursos | Al montar la tab. Pull-to-refresh. Infinite scroll con cursor. | 5 min stale-while-revalidate |
+| `GET /v1/courses/:id` | Detalle del Curso | Al abrir la pantalla de detalle. | 5 min stale-while-revalidate |
+| `GET /v1/enrollments` | Tab Cursos | En paralelo con `/v1/courses` al montar la tab. | Invalidar tras POST enrollments |
+| `POST /v1/enrollments` | Detalle del Curso | Al tocar "Comenzar curso". Idempotente: 201 (nueva) o 200 (ya inscrito). | Invalidar cache de enrollments |
+| `GET /v1/courses/:id/onboarding` | Cuestionario | Al iniciar onboarding. Incluye `existing_response` si ya fue completado. | Sin caché — siempre fresco |
+| `POST /v1/courses/:id/onboarding` | Cuestionario | Al finalizar el cuestionario (paso de procesamiento). | — |
+| `GET /v1/courses/:id/modules` | Reproductor | Al abrir el reproductor. Pre-cargar en detalle del curso. | 2 min, invalidar al completar módulo |
+| `GET /v1/variants/:id/contents` | Reproductor | Al seleccionar un módulo. Pre-cargar el módulo siguiente en background. | 2 min stale-while-revalidate |
+| `POST /v1/progress` | Reproductor | Fire-and-forget en cada trigger de `started` / `completed`. | Cola local persistente si falla |
+| `GET /v1/courses/:id/progress` | Panel de Progreso | Al abrir la vista de progreso. Refetch tras POST progress exitoso. | Invalidar en POST progress |
+| `POST /v1/contents/:id/answers` | Reproductor (Quiz) | Al tocar "Enviar" en un quiz. Bloquea navegación hasta recibir respuesta. | — |
+| `GET /v1/contents/:id/answers` | Reproductor (Quiz) | Al abrir un quiz ya completado (modo revisión). | 5 min |
+
+## Llamadas en paralelo
+
+Dos pares de endpoints se lanzan en paralelo para minimizar tiempo de carga:
+
+**Al montar Tab Cursos:**
+```
+GET /v1/enrollments?status=active  ─┐
+GET /v1/courses                    ─┘ en paralelo
+```
+
+**Al abrir el Reproductor:**
+```
+GET /v1/courses/:id/modules        ─┐
+GET /v1/variants/:id/contents      ─┘ en paralelo (módulo activo)
+```
+
+## Invalidación de caché
+
+| Acción del usuario | Caches a invalidar |
+| --- | --- |
+| `POST /v1/enrollments` exitoso | `GET /v1/enrollments` |
+| `POST /v1/courses/:id/onboarding` exitoso | `GET /v1/courses/:id/modules` (las variantes pueden haber cambiado) |
+| `POST /v1/progress` exitoso | `GET /v1/courses/:id/progress` |
+| Módulo completado (último ítem) | `GET /v1/courses/:id/modules` (completion\_rate del módulo) |
+
+## Cola offline para progreso
+
+`POST /v1/progress` es el endpoint más tolerante a fallos del sistema. Si la llamada falla por red:
+
+1. Persistir el evento `{ content_id, event, timestamp }` en SQLite (React Native) o IndexedDB (web).
+2. Al recuperar conectividad, vaciar la cola en orden cronológico.
+3. Máximo **100 eventos** en cola. Si se supera, descartar los más antiguos con `started` primero (los `completed` son más importantes).
+4. El usuario **nunca** debe ver un error de progreso en pantalla.
+
+## Autenticación
+
+Todos los endpoints requieren:
+
+```
+Authorization: Bearer <supabase-jwt>
+```
+
+El JWT se renueva automáticamente por el cliente de Supabase Auth. Si una llamada retorna `401`, refrescar el token y reintentar una vez antes de redirigir al login.
