@@ -1144,6 +1144,12 @@ create trigger product_access_set_timestamps
 -- every alumnus a unique content sequence. Progress and answers are tracked
 -- at the content level.
 --
+-- Personalisation operates at the MODULE level, never the course level: the
+-- set of modules in a course, and their order, is fixed and identical for
+-- every learner. What varies per learner is only which variant (content
+-- sequence) they get within each module — see course_modules vs.
+-- course_variants below.
+--
 -- Hierarchy:
 --   courses  (existing)
 --     └── course_modules       (ordered sections of a course)
@@ -1170,9 +1176,11 @@ create type course_content_type as enum ('html', 'video', 'audio', 'meditation',
 
 
 -- ----- course_modules --------------------------------------------------------
--- An ordered section (chapter) of a course. Learners move through modules
--- sequentially. Each module offers one or more variants so the backend can
--- personalise the path for each alumnus.
+-- An ordered section (chapter) of a course. The set of modules and their
+-- order is FIXED per course — identical for every learner. Personalisation
+-- never adds, removes, or reorders modules; each module offers one or more
+-- variants (see course_variants) so the backend can personalise the path
+-- *within* that module only.
 --
 -- position - ascending sort order within the parent course. The application
 --            is responsible for keeping positions contiguous.
@@ -1194,6 +1202,12 @@ alter table course_modules enable row level security;
 -- A named path through a module — an ordered set of content items. A module
 -- must have at least one variant; multiple variants allow the system to assign
 -- different experiences to different learners (A/B or fully personalised).
+--
+-- Scope: a variant belongs to exactly one module and only affects that
+-- module's content sequence. There is no course-wide "path" — a learner's
+-- variant in one module has no bearing on their variant in another; each
+-- module's assignment is resolved independently (see
+-- course_alumni_assignments).
 
 create table course_variants (
   id          uuid primary key default gen_random_uuid(),
@@ -1544,6 +1558,19 @@ create trigger student_insight_memory_set_timestamps
 --   4. The first rule whose conditions match → variant is assigned via
 --      course_alumni_assignments. default_variant_id is the fallback.
 --
+-- Scope: a policy — regardless of trigger_point — only ever assigns a variant
+-- for ONE module: whichever module owns the course_variants row referenced by
+-- the matched rule's target_variant_id (or the policy's default_variant_id).
+-- trigger_point controls WHEN the assessment fires (before the course starts,
+-- before/after a specific module, or standalone) — it does not widen the
+-- assignment's scope. In particular, 'before_course' does NOT mean the whole
+-- course's path is personalised; it only means this particular module's
+-- assessment happens to run before the learner starts anything. Path/variant
+-- selection is always per-module (see course_modules / course_variants). To
+-- personalise more than one module from a shared signal, create one policy
+-- (and rule set) per module — there is no mechanism for a single rule to
+-- assign variants across multiple modules at once.
+--
 -- Conditions are stored as JSONB inside variant_assignment_rules (same
 -- app-owns-shape convention as student_answers.answers). The SQL layer does
 -- not introspect condition keys.
@@ -1561,7 +1588,10 @@ create type assessment_question_type as enum (
   'boolean'
 );
 
--- When in the learner's journey to trigger the assessment.
+-- When in the learner's journey to trigger the assessment. This is timing
+-- only, not scope — every trigger_point, including 'before_course', still
+-- resolves to a single module's variant assignment (see the "Scope" note
+-- above, in this section's header comment).
 create type policy_trigger_point as enum (
   'before_course',
   'before_module',
@@ -1641,6 +1671,12 @@ alter table student_assessment_responses enable row level security;
 -- The check constraint ensures the trigger_point is coherent with the context
 -- foreign keys: course-level triggers require course_id; module-level triggers
 -- require module_id; standalone needs neither.
+--
+-- course_id on a 'before_course' policy only scopes WHEN the assessment fires
+-- and which course's access gates it (see has_policy_access) — it does not
+-- widen the assignment. default_variant_id (like target_variant_id below)
+-- still points at one course_variants row belonging to one module, so even a
+-- 'before_course' policy only ever assigns that single module's variant.
 
 create table variant_assignment_policies (
   id                  uuid primary key default gen_random_uuid(),
