@@ -1388,7 +1388,17 @@ create policy "student_answers: self insert"
 
 create policy "student_answers: self update"
   on student_answers for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1
+      from course_contents cc
+      join course_alumni_assignments caa on caa.variant_id = cc.variant_id
+      where cc.id = content_id
+        and caa.user_id = auth.uid()
+    )
+  );
 
 -- Insights are written by the backend / MCP server (service_role). The learner
 -- can read their own insights so the frontend can surface them if needed.
