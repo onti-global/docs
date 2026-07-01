@@ -1,0 +1,188 @@
+---
+title: "conventions.md"
+---
+
+## Platform
+
+- **Database**: Postgres, hosted on [Supabase](https://supabase.com).
+- **Projects**: Two Supabase projects with identical schemas:
+  - `staging` — used for development, QA, and integration testing.
+  - `production` — used for live traffic only.
+- Schema changes must be applied to **staging first**, validated, and then promoted to production via the same migration. The two projects must never drift.
+
+### Supabase services we use
+
+We use Supabase strictly as a **database \+ auth provider**. Application logic lives in our own backend services.
+
+- ✅ **Postgres database** — schemas, RLS, functions, triggers.
+- ✅ **Supabase Auth** — the single source of truth for user identity.
+- ❌ **Supabase Edge Functions** — do not use. All server-side logic belongs in our existing backend, not in Edge Functions.
+- ❌ Supabase Storage, Realtime, and other add-on services are out of scope unless explicitly approved.
+
+## Auth and users
+
+- **Supabase Auth is the only auth system.** Do not roll a custom users/passwords table or a parallel identity store.
+- Authenticated users live in the managed `auth.users` table — never write to it directly from application code.
+- Application-level profile data lives in a separate `public.user_details` table, keyed by the `auth.users.id`:
+  - `user_id uuid primary key references auth.users(id) on delete cascade`
+  - All additional fields (display name, avatar, preferences, role, etc.) go here.
+  - RLS policies on `user_details` should be written against `auth.uid()`.
+- A row in `user_details` should be created on signup (via a trigger on `auth.users` or from the backend immediately after signup) so the two stay 1:1.
+- `user_details` is the reference example of the **1:1-with-`auth.users`** primary key exception — see [Primary keys](#naming) below before introducing a new table like it (e.g. `admin_dashboard_access`).
+
+<Note>
+  All SQL on this page is **illustrative only**. This is a conventions document, not a migration source. Real DDL lives in version-controlled migrations.
+</Note>
+
+**Example:**
+
+```sql
+create table user_details (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  display_name text,
+  avatar_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table user_details enable row level security;
+
+create policy "users can read their own details"
+  on user_details for select
+  using (auth.uid() = user_id);
+
+create policy "users can update their own details"
+  on user_details for update
+  using (auth.uid() = user_id);
+```
+
+## Row Level Security
+
+- **RLS is always enabled** on every table — no exceptions, including lookup and join tables.
+- Every table must ship with explicit policies for every role that should have access (`anon`, `authenticated`). A table with RLS on and no policies is effectively unreadable to those roles, which is intentional until policies are written.
+- **`service_role` never needs a policy.** It carries `BYPASSRLS` in Supabase, so it ignores RLS entirely — writing a `service_role` policy is a no-op and a sign the design should be reconsidered (should this really be backend-only, or does a real role need a real policy?). Reserve the service-role key for trusted server-side code and never expose it to clients.
+- Write policies as narrowly as possible (`select`, `insert`, `update`, `delete` each get their own policy when behavior differs).
+- A `using`/`with check` clause that omits `to <role>` applies to `public` (every role, including `anon`). This is safe as long as the predicate itself fails closed for unauthenticated callers — e.g. `auth.uid() = user_id` is `false` for `anon` because `auth.uid()` is `null`. Prefer adding `to authenticated` explicitly on catalog-style policies (anything with `using (true)` or a status check) so the intent is unambiguous to the next reader; self-scoped `auth.uid() = ...` policies may omit it since the predicate already excludes `anon`.
+
+### Content behind a gated resource must re-derive access from the top of the hierarchy
+
+The most common RLS mistake in a schema with nested resources (e.g. `course` → `module` → `variant` → `content`) is granting a permissive `using (true)` policy to a child table because "it's just structure, not the sensitive part." The child table is exactly as sensitive as whatever the parent gates (a paid course, a draft in progress, a revoked entitlement) — a table one level down should never be *more* visible than the resource above it.
+
+Checklist when adding a table under an existing gated resource:
+
+- Does reading this row require the same entitlement/enrollment/ownership check as its parent? If yes, don't reinvent the check inline — see helper functions below.
+- Does a **lifecycle transition** on the parent (e.g. `course_status` → `archived`, `enrollment_status` → `dropped`, `user_product_status` → `revoked`) need to revoke access here too? Write the policy against current status, not just "a join row exists." A row created at enrollment time doesn't disappear when the enrollment is later dropped — the policy has to check status, not existence.
+- Does a status change need a **carve-out** rather than a full lock-out? E.g. an `archived` course should stay readable to users who were already enrolled, even though it's no longer in the public catalog. Model this as `using (status = 'published' or has_x_access(...))`, not a single status check.
+
+### RLS helper functions
+
+Repeated `exists (select 1 from ... where ...)` access checks across several policies should be factored into small, reusable, `stable` SQL functions rather than copy-pasted into every `using`/`with check` clause. This keeps a hierarchy's access rule defined in exactly one place, so a future change to the entitlement logic doesn't require hunting down every policy that inlined it.
+
+- Name predicate functions `has_<noun>_access(...)` or `is_<state>(...)`; they return `boolean`.
+- Use `language sql stable` for pure read-only lookups (the common case). Only use `volatile` for functions with side effects (triggers), and never `immutable` unless the result truly never depends on table contents.
+- Always set `set search_path = public` on the function, even when it isn't `security definer` — it costs nothing and removes an entire class of search-path-hijacking risk if the function is ever changed to `security definer` later.
+- Build helpers bottom-up and let higher-level ones call lower-level ones (e.g. a module-level check calls the course-level check) instead of re-deriving the full join chain at every level.
+- Keep these functions **`security invoker`** (the default — don't add `security definer`). Because they run as the calling role, RLS on the tables they query still applies, which is what makes them safe to call from any policy without becoming a privilege-escalation path.
+
+```sql
+-- has_course_access(course_id) is reused by every table in the course
+-- hierarchy so the enrollment/entitlement rule is defined exactly once.
+create or replace function has_course_access(p_course_id uuid)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from course_enrollments ce
+    where ce.course_id = p_course_id
+      and ce.user_id = auth.uid()
+      and ce.status <> 'dropped'
+  );
+$$;
+
+create policy "course_modules: read if enrolled"
+  on course_modules for select
+  to authenticated
+  using (has_course_access(course_id));
+```
+
+### `security definer` functions
+
+`security definer` is the rare exception, not the default — reserve it for cases that must legitimately cross an RLS boundary the calling role can't otherwise see (e.g. a Supabase Auth token hook that needs to read an access-control table before the caller has a session at all). When you do write one:
+
+- Set `set search_path = public` — this is not optional for `security definer`; an unpinned search path is a privilege-escalation vector.
+- Immediately `revoke execute` from `public`, `anon`, and `authenticated`, and `grant execute` only to the specific role(s) that must call it.
+- Grant the minimum table privilege the function needs (e.g. `grant select on <table> to supabase_auth_admin`) rather than relying on the function owner's broader privileges.
+
+## Naming
+
+- Use **`snake_case`** for all identifiers: tables, columns, indexes, constraints, functions, and types.
+- Table names are **plural nouns** (`users`, `organizations`, `audit_logs`).
+- Join tables combine both sides, alphabetized (`organization_users`, not `users_organizations`) **only when the relationship itself has no independent identity**. When the relationship carries its own state or lifecycle (a status, a timestamp beyond `created_at`/`updated_at`, its own history), give it a domain name instead — `course_enrollments` (not `course_users`), `user_products`, `course_alumni_assignments`. A domain name signals "this row means something on its own," not just "these two things are linked."
+- **All IDs must be `uuid`** — primary keys, foreign keys, and any other identifier column **we generate**. Never use serial/bigserial integer IDs. Generate with `gen_random_uuid()` as the column default.
+  - **Exception**: identifiers issued by an external system (a payment vendor's product/price/event id, a model provider's assistant id) are stored as `text` in their native format — they are not ours to reformat as a `uuid`. Name them so the source is unambiguous, e.g. `vendor_product_id`, `provider_agent_id`, and keep a `unique` constraint scoped to the vendor/provider (`unique (vendor, vendor_product_id)`) since the raw id alone isn't guaranteed globally unique across vendors.
+- Primary keys are `id`, **except** for a table in a strict 1:1 relationship with another table's identity — most commonly `auth.users`. There, the primary key **is** the parent id (`user_id uuid primary key references auth.users(id)`), with no separate surrogate `id` column. Use this only for genuine 1:1 tables (one row ever, per parent); anything that could plausibly become 1:many later should get its own `id`. `user_details` and `admin_dashboard_access` are the two current examples.
+- Foreign keys are `<singular_table>_id` (e.g. `organization_id`), **except** actor/audit references recording *who did this* — those use a `<verb>_by` suffix instead (`granted_by`, `created_by`, `approved_by`), still referencing `auth.users(id)`. Don't invent other `_id`-less FK names beyond this actor-reference pattern.
+- Timestamps use `_at` suffix (`created_at`, `updated_at`, `deleted_at`). Domain-specific timestamps come before `created_at`/`updated_at` in column order (e.g. `assigned_at`, `granted_at`, `completed_at`) — see [Schema files](#schema-files) for full column ordering.
+- Booleans use `is_` or `has_` prefix (`is_active`, `has_verified_email`).
+- **No abbreviations.** Spell identifiers out in full so meaning is unambiguous to anyone reading the schema. For example: use `date_of_birth` instead of `dob`, `description` instead of `desc`, `address` instead of `addr`, `organization` instead of `org`. Widely understood acronyms (`url`, `id`, `uuid`) are fine. Product/brand names used as a domain term (e.g. `onti_packages`) are not abbreviations and are fine as-is.
+
+## Enums
+
+- **Always use Postgres enums** (or foreign keys to a reference table) instead of free-form strings. Never branch logic on string comparisons in the database or application.
+- Enum type names are singular and `snake_case` (`user_role`, `subscription_status`, `payment_method`).
+- Enum values are lowercase `snake_case` (`active`, `past_due`, `pending_review`).
+- Adding a new value: `ALTER TYPE ... ADD VALUE`. Removing or renaming values requires a migration that creates a new type and swaps it — plan accordingly.
+
+**Example:**
+
+```sql
+create type subscription_status as enum ('active', 'trialing', 'past_due', 'canceled');
+
+create table subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id) on delete cascade,
+  status subscription_status not null default 'trialing',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table subscriptions enable row level security;
+```
+
+## Constraints
+
+- Prefer a `check` constraint over application-level validation whenever the invariant is expressible in SQL — it can't be bypassed by a bug in one code path while another forgets it.
+- For **"exactly one of N columns must be set"** (a polymorphic reference, e.g. a row that grants access to *either* a course *or* an agent *or* a package), write the constraint as a full enumeration of valid states, explicitly nulling out every column that shouldn't be set in that branch — don't just assert the required column `is not null` and leave the others unconstrained, or you allow ambiguous rows where more than one is set:
+
+```sql
+-- Good: every branch pins the irrelevant columns to null too.
+constraint user_products_exactly_one_product check (
+  (product_kind = 'course'       and course_id  is not null and agent_id is null     and package_id is null) or
+  (product_kind = 'agent'        and agent_id   is not null and course_id is null    and package_id is null) or
+  (product_kind = 'onti_package' and package_id is not null and course_id is null    and agent_id is null)
+)
+```
+
+- The same discipline applies to any "context" check tied to an enum (e.g. a trigger/scope enum where different values require different foreign keys to be set) — enumerate every branch fully rather than only constraining the column that branch requires.
+
+## Schema files
+
+- The canonical, versioned definition of the schema is a set of migration files in the backend/app repo — **this docs site does not own the source of truth**. `schema.mdx` in this repo is a human-readable mirror of that state, kept in lockstep by hand; if the two ever disagree, the real migrations win and this file needs updating, not the other way around.
+- Each definition must:
+  - Include **comments explaining usage** — what the table/type is for, who reads and writes it, and any non-obvious constraints or invariants.
+  - Use consistent ordering within a table: `id` first (or the 1:1 exception's parent-id primary key), foreign keys next, domain columns, then `created_at` / `updated_at` last.
+- Two structural layouts are both acceptable, depending on schema size:
+  - **Global pass** (enums for the whole schema, then all tables, then all indexes, then all RLS policies, then all triggers) — works well while the schema is small and every table fits comfortably in one mental model.
+  - **Domain blocks** (each feature area gets its own self-contained section with local enums, tables, indexes, RLS, and triggers together) — switch to this once the schema spans enough unrelated domains that a single global RLS section would force readers to scroll past unrelated tables to find the one they care about. Number the sections and give each an index comment at the top of the file.
+  - Don't mix conventions arbitrarily within one file — if the file has already adopted domain blocks for later sections, add new domains the same way rather than reverting to a global section.
+- Treat schema files as documentation as much as code — a new engineer (or agent) should be able to read a section top-to-bottom and understand the domain, including why access is gated the way it is, without needing to cross-reference the backend code.
+
+## Migrations
+
+- All schema changes go through version-controlled migrations — no ad-hoc changes in the Supabase dashboard.
+- Apply to `staging` first, verify, then apply the **same** migration to `production`.
+- Migrations should be idempotent where possible and always reversible in a follow-up if needed.
+- When a migration adds a table that sits underneath an existing gated resource (see [Row Level Security](#row-level-security)), the migration is not done until its RLS policies are written — don't ship the table now and "add RLS later." A table with RLS enabled and no policy is safe-by-default; a table with RLS *not yet enabled*, or enabled with an accidental `using (true)`, is not.
