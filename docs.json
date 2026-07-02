@@ -314,6 +314,15 @@
                     ]
                   },
                   {
+                    "group": "whatsapp",
+                    "pages": [
+                      "internal/v1/whatsapp/index",
+                      "internal/v1/whatsapp/webhook.get",
+                      "internal/v1/whatsapp/webhook.post",
+                      "internal/v1/whatsapp/messages.post"
+                    ]
+                  },
+                  {
                     "group": "admin",
                     "pages": [
                       "kpis-get-md"

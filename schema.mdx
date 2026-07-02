@@ -35,6 +35,9 @@ title: "schema.sql"
 --        - student_assessment_responses
 --        - variant_assignment_policies
 --        - variant_assignment_rules
+--   11. WhatsApp messaging
+--        - whatsapp_conversations
+--        - whatsapp_messages
 --   3. Indexes
 --   4. Row Level Security policies
 --   5. Trigger functions and triggers (updated_at automation)
@@ -1843,5 +1846,168 @@ create trigger variant_assignment_policies_set_timestamps
 
 create trigger variant_assignment_rules_set_timestamps
   before insert or update on variant_assignment_rules
+  for each row execute function set_timestamps();
+
+
+-- =============================================================================
+-- 11. WhatsApp messaging
+-- -----------------------------------------------------------------------------
+-- The WhatsApp *interface* layer: the thread with a contact and the append-only
+-- log of every message sent or received through the WhatsApp Cloud API (Meta).
+-- This is transport/audit state only — it does not model agent memory or LLM
+-- context. Deciding what to reply, and remembering anything across messages,
+-- is the job of agents / agent_memories (see section 2), which reads and
+-- writes independently of these tables.
+--
+-- Tables:
+--   - whatsapp_conversations (the continuous thread with one contact)
+--   - whatsapp_messages      (append-only log of every inbound/outbound message)
+--
+-- MVP scope: phone-number-only. There is intentionally no auth.users link here
+-- (no user_id column) — a contact is identified purely by wa_id. Reconciling a
+-- WhatsApp contact to a known Onti account, if ever needed, can be added later
+-- as an additional nullable column without changing this shape.
+--
+-- Webhook handling pattern mirrors billing_events (section 6): every inbound
+-- message and status update is persisted directly (there is no separate raw
+-- ingest + projector split here, since there is no multi-step downstream
+-- projection to do — persisting *is* the whole job of the webhook handler).
+-- =============================================================================
+
+
+-- ----- enums -----------------------------------------------------------------
+
+-- Who sent a given whatsapp_messages row.
+create type whatsapp_message_direction as enum ('inbound', 'outbound');
+
+-- Kind of WhatsApp message content. Mirrors the type values the WhatsApp Cloud
+-- API itself uses; 'unknown' is a catch-all for types Meta adds later that we
+-- haven't explicitly modeled yet (the full payload is always preserved in
+-- whatsapp_messages.raw regardless of type).
+create type whatsapp_message_type as enum (
+  'text',
+  'image',
+  'video',
+  'audio',
+  'document',
+  'sticker',
+  'location',
+  'contacts',
+  'interactive',
+  'button',
+  'template',
+  'order',
+  'system',
+  'unknown'
+);
+
+-- Lifecycle of a whatsapp_messages row.
+--   received  - inbound message persisted from the webhook.
+--   sent      - outbound message accepted by Meta.
+--   delivered - Meta confirmed delivery to the recipient's device.
+--   read      - recipient opened the message (read receipt).
+--   failed    - outbound send was rejected by Meta, or delivery failed.
+create type whatsapp_message_status as enum ('received', 'sent', 'delivered', 'read', 'failed');
+
+
+-- ----- whatsapp_conversations --------------------------------------------------
+-- One row per (business_phone_number_id, wa_id) pair — the continuous thread
+-- with a contact, not a per-session log. WhatsApp itself has no notion of
+-- discrete conversation boundaries beyond the 24-hour customer service window,
+-- so this table tracks that window rather than a lifecycle status.
+--
+-- business_phone_number_id - Meta's phone_number_id for the WhatsApp Business
+--                             number the thread is on. Stored per-row (rather
+--                             than assumed to be a single global constant) so
+--                             a second business number can be onboarded later
+--                             without a schema change.
+-- wa_id                     - the contact's WhatsApp id (phone number, digits
+--                             only, no leading '+').
+-- last_inbound_at           - timestamp of the contact's most recent message.
+--                             Drives the 24h customer-service-window check
+--                             that gates free-form (type = 'text') sends.
+-- last_outbound_at          - timestamp of our most recent message to them.
+
+create table whatsapp_conversations (
+  id                       uuid primary key default gen_random_uuid(),
+  business_phone_number_id text not null,
+  wa_id                    text not null,
+  contact_name             text,
+  last_inbound_at          timestamptz,
+  last_outbound_at         timestamptz,
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now(),
+
+  constraint whatsapp_conversations_phone_wa_unique unique (business_phone_number_id, wa_id)
+);
+
+alter table whatsapp_conversations enable row level security;
+
+
+-- ----- whatsapp_messages ------------------------------------------------------
+-- Append-only log of every message sent or received on a conversation. Mirrors
+-- billing_events' "store the raw payload verbatim" convention (see section 6)
+-- so nothing Meta sends is ever lost, even for message types we don't fully
+-- model in dedicated columns.
+--
+-- wamid        - Meta's message id. Nullable because a failed outbound send
+--                never receives one from Meta, but the attempt is still
+--                logged for audit. Unique when present (see index below) so
+--                Meta's at-least-once webhook retries collapse into one row.
+-- text_body    - populated for type = 'text' and for the selected option's
+--                title on button/interactive replies; null otherwise.
+-- context_wamid - the wamid of a quoted/replied-to message, if any.
+-- error        - Meta's error object; populated only when status = 'failed'.
+-- raw          - the full Meta message or status object, verbatim, for audit
+--                and replay.
+
+create table whatsapp_messages (
+  id              uuid primary key default gen_random_uuid(),
+  conversation_id uuid not null references whatsapp_conversations(id) on delete cascade,
+  direction       whatsapp_message_direction not null,
+  wamid           text,
+  type            whatsapp_message_type not null,
+  text_body       text,
+  context_wamid   text,
+  status          whatsapp_message_status not null,
+  error           jsonb,
+  raw             jsonb not null,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+alter table whatsapp_messages enable row level security;
+
+
+-- ----- indexes -----------------------------------------------------------------
+
+-- Contact lookup (webhook upserts, agent worker queries by wa_id).
+create index whatsapp_conversations_wa_id_idx on whatsapp_conversations (wa_id);
+
+-- Message history for a given thread (hot path for the agent worker reading
+-- context, and for the webhook appending new rows).
+create index whatsapp_messages_conversation_id_idx on whatsapp_messages (conversation_id);
+
+-- Idempotency: Meta retries webhook deliveries at-least-once; this collapses
+-- duplicate deliveries into a single row. Partial because failed outbound
+-- sends have no wamid.
+create unique index whatsapp_messages_wamid_idx on whatsapp_messages (wamid) where wamid is not null;
+
+
+-- ----- RLS policies --------------------------------------------------------------
+-- WhatsApp data is backend-only: it is written by the webhook handler and the
+-- send endpoint, and read by the agent worker via service_role. No end-user
+-- app or admin-dashboard client reads these tables directly, so — like
+-- billing_events (section 6) — RLS is enabled with no policies at all.
+
+
+-- ----- triggers --------------------------------------------------------------
+
+create trigger whatsapp_conversations_set_timestamps
+  before insert or update on whatsapp_conversations
+  for each row execute function set_timestamps();
+
+create trigger whatsapp_messages_set_timestamps
+  before insert or update on whatsapp_messages
   for each row execute function set_timestamps();
 ```

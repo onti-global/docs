@@ -1,0 +1,78 @@
+---
+title: "WhatsApp"
+description: "Transport layer connecting the WhatsApp Cloud API (Meta) to Onti — starting conversations, receiving messages, and sending replies."
+---
+
+## Scope
+
+This is the **WhatsApp interface layer** only: getting messages in and out of WhatsApp via Meta's Cloud API, and persisting them to `whatsapp_conversations` / `whatsapp_messages` (see [`schema.sql`](/schema) §11). It does **not** decide what to say. Reply generation, memory, and MCP context all live in the existing agent/LLM layer (`agents`, `agent_memories`) and are out of scope for every endpoint on this page.
+
+The consumer of this layer is expected to be a backend/agent worker process that:
+1. Watches `whatsapp_messages` for new `direction = 'inbound'` rows (Supabase Realtime, or polling with `service_role` — there is no REST endpoint for reading message history, same convention as `agent_memories`).
+2. Decides a reply using whatever agent/LLM logic it owns.
+3. Calls [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) to send it.
+
+## Endpoints
+
+### Webhook Verification
+One-time handshake Meta performs when the Callback URL is configured. Not part of normal traffic.
+```
+GET /v1/whatsapp/webhook
+```
+
+### Webhook
+Meta delivers every inbound message and every delivery-status update here. This is what makes a new contact's first message create a conversation, and what persists every message in a thread.
+```
+POST /v1/whatsapp/webhook
+```
+
+### Send Message
+Sends a template (to start a conversation, or to message outside the 24h window) or a free-form text message (to reply inside an open window).
+```
+POST /v1/whatsapp/messages
+```
+
+## How the three flows map to these endpoints
+
+| Flow | How it works |
+| --- | --- |
+| **Start a conversation** (us) | Call [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) with `type: "template"`. Creates the `whatsapp_conversations` row if one doesn't exist yet. |
+| **Receive a new conversation** (them) | Meta delivers the contact's first message to [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post), which upserts `whatsapp_conversations` — the insert *is* the "new conversation" event. |
+| **Receive each message and reply** | Every inbound message lands in `whatsapp_messages` via [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post). The agent worker reacts to it and replies with [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) using `type: "text"`. |
+
+## Authentication
+
+None of these endpoints use a Supabase JWT — see [`docs.json`](/) conventions for the `internal` API tier. There are two distinct auth **shapes** in play here, and they are not interchangeable:
+
+| Endpoint | `client` | Auth mechanism |
+| --- | --- | --- |
+| `GET /v1/whatsapp/webhook` | `vendor` | `hub.verify_token` query param, checked once during Meta's handshake against `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. |
+| `POST /v1/whatsapp/webhook` | `vendor` | `X-Hub-Signature-256` HMAC over the raw body, computed by Meta using `WHATSAPP_APP_SECRET`. |
+| `POST /v1/whatsapp/messages` | `service` | Static `x-api-key` header, checked against `WHATSAPP_MESSAGES_API_KEY`. Intended for our own backend/agent worker only — never called by an end-user app or the admin dashboard. |
+
+**Why the webhook can't use an `x-api-key` like the other internal endpoints do:** Meta controls what it sends on webhook deliveries, and that's fixed to `X-Hub-Signature-256` (plus, once, `hub.verify_token` on the one-time GET handshake) — there's no way to configure Meta to also attach a custom shared-secret header. Signature verification against `WHATSAPP_APP_SECRET` **is** the WhatsApp Cloud API's equivalent of an API key for inbound traffic: it proves the payload was signed by an app that knows our App Secret, which only Meta (and us) hold. `x-api-key` is only usable on `POST /v1/whatsapp/messages` because we're the ones building that request, so we get to choose its headers.
+
+## Environment variables
+
+| Variable | Used by | Purpose |
+| --- | --- | --- |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | `GET /webhook` | Secret we choose ourselves and register alongside the Callback URL in the Meta App Dashboard. Echoed back as `hub.verify_token` during the one-time verification handshake. |
+| `WHATSAPP_APP_SECRET` | `POST /webhook` | Meta App Secret (from the App Dashboard's Basic Settings). Used to compute/verify the `X-Hub-Signature-256` HMAC on every inbound webhook delivery. |
+| `WHATSAPP_ACCESS_TOKEN` | `POST /messages` | **System User** access token (long-lived / non-expiring — not a personal user token, which expires in 24h). Sent as `Authorization: Bearer` on every outbound call to Meta's Graph API. |
+| `WHATSAPP_PHONE_NUMBER_ID` | `POST /messages`, `POST /webhook` | Meta's `phone_number_id` for our WhatsApp Business number. Used both as the Graph API URL path segment when sending, and as the value written to / matched against `whatsapp_conversations.business_phone_number_id`. |
+| `WHATSAPP_API_VERSION` | `POST /messages` | Graph API version segment in the URL (e.g. `v21.0`). Bump deliberately ahead of Meta's version deprecation deadlines. |
+| `WHATSAPP_MESSAGES_API_KEY` | `POST /messages` | Our own shared secret for `x-api-key`. Authenticates the agent worker to *us* — unrelated to `WHATSAPP_ACCESS_TOKEN`, which authenticates *us* to Meta. |
+
+`WHATSAPP_WEBHOOK_VERIFY_TOKEN` and `WHATSAPP_APP_SECRET` are configured once in the Meta App Dashboard (WhatsApp → Configuration) to match whatever we set server-side; the other three are ours entirely and never touch the Meta dashboard.
+
+## The 24-hour messaging window
+
+WhatsApp only allows free-form (`type: "text"`) messages within 24 hours of the contact's last message — this is a Meta platform rule, not an Onti policy. `whatsapp_conversations.last_inbound_at` tracks this, and [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) enforces it, rejecting `type: "text"` outside the window with `409 outside_messaging_window`. A `template` message (pre-approved by Meta) is the only way to message a contact who hasn't messaged us recently — that's why "starting a conversation" always means sending a template.
+
+## Data model
+
+See [`schema.sql`](/schema) §11 for the full table definitions. In short:
+- `whatsapp_conversations` — one row per `(business_phone_number_id, wa_id)`, a continuous thread with a contact.
+- `whatsapp_messages` — append-only log of every inbound/outbound message, keyed by Meta's `wamid` for dedup against webhook retries.
+
+Both tables have RLS enabled with no policies — they're backend-only, read and written via `service_role`.
