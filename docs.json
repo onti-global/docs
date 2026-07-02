@@ -309,23 +309,23 @@
                   {
                     "group": "billing",
                     "pages": [
-                      "internal/v1/billing/checkout",
-                      "internal/v1/billing/webhook"
+                      "api/internal/v1/billing/checkout",
+                      "api/internal/v1/billing/webhook"
                     ]
                   },
                   {
                     "group": "whatsapp",
                     "pages": [
-                      "internal/v1/whatsapp/index",
-                      "internal/v1/whatsapp/webhook.get",
-                      "internal/v1/whatsapp/webhook.post",
-                      "internal/v1/whatsapp/messages.post"
+                      "api/internal/v1/whatsapp/index",
+                      "api/internal/v1/whatsapp/webhook.get",
+                      "api/internal/v1/whatsapp/webhook.post",
+                      "api/internal/v1/whatsapp/messages.post"
                     ]
                   },
                   {
                     "group": "admin",
                     "pages": [
-                      "kpis-get-md"
+                      "api/admin/v1/kpis-get-md"
                     ]
                   },
                   {
