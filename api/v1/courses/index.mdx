@@ -61,48 +61,48 @@ GET  /v1/contents/:id/answers
 ### Course Builder
 Create and manage courses, modules, variants, and content items.
 ```
-POST  /admin/v1/courses
-PUT   /admin/v1/courses/:id
-POST  /admin/v1/courses/:id/modules
-POST  /admin/v1/modules/:id/variants
-POST  /admin/v1/variants/:id/contents
-PUT   /admin/v1/contents/:id
+POST  /internal/v1/admin/courses
+PUT   /internal/v1/admin/courses/:id
+POST  /internal/v1/admin/courses/:id/modules
+POST  /internal/v1/admin/modules/:id/variants
+POST  /internal/v1/admin/variants/:id/contents
+PUT   /internal/v1/admin/contents/:id
 ```
 
 ### Enrollment Manager
 List and manually manage student enrollments.
 ```
-GET   /admin/v1/courses/:id/enrollments
-POST  /admin/v1/enrollments
-PATCH /admin/v1/enrollments/:id
+GET   /internal/v1/admin/courses/:id/enrollments
+POST  /internal/v1/admin/enrollments
+PATCH /internal/v1/admin/enrollments/:id
 ```
 
 ### Assessment Builder
 Build assessment flows and their questions.
 ```
-POST  /admin/v1/assessment-flows
-POST  /admin/v1/assessment-flows/:id/questions
-PUT   /admin/v1/assessment-flows/:id/questions/:qid
+POST  /internal/v1/admin/assessment-flows
+POST  /internal/v1/admin/assessment-flows/:id/questions
+PUT   /internal/v1/admin/assessment-flows/:id/questions/:qid
 ```
 
 ### Assignment Rules
 Configure the policies and rules that auto-assign variants from assessment answers.
 ```
-POST  /admin/v1/variant-policies
-POST  /admin/v1/variant-policies/:id/rules
-PUT   /admin/v1/variant-policies/:id/rules/:rid
+POST  /internal/v1/admin/variant-policies
+POST  /internal/v1/admin/variant-policies/:id/rules
+PUT   /internal/v1/admin/variant-policies/:id/rules/:rid
 ```
 
 ### Variant Assignments
 View and manually override a student's variant assignment per module.
 ```
-GET   /admin/v1/courses/:id/assignments
-PUT   /admin/v1/assignments/:id
+GET   /internal/v1/admin/courses/:id/assignments
+PUT   /internal/v1/admin/assignments/:id
 ```
 
 ### Student Insights
 Read insight memory records generated during course content interactions.
 ```
-GET   /admin/v1/students/:id/insights
-GET   /admin/v1/contents/:id/insights
+GET   /internal/v1/admin/students/:id/insights
+GET   /internal/v1/admin/contents/:id/insights
 ```

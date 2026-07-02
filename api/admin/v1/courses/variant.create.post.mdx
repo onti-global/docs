@@ -1,7 +1,7 @@
 ---
 title: "variants-create"
-api: "v1"
-endpoint: "/admin/v1/modules/:id/variants"
+api: "admin"
+endpoint: "/internal/v1/admin/modules/:id/variants"
 method: "post"
 client: "admin"
 tag: "api"
@@ -50,12 +50,16 @@ Adds a new variant to a module. Variants are the personalised paths through a mo
 
 ```json
 {
-  "id": "v3...ii",
-  "module_id": "m3...hh",
-  "name": "High-Autonomy Path",
-  "description": "For learners with prior facilitation experience.",
-  "created_at": "2026-06-29T12:15:00Z",
-  "updated_at": "2026-06-29T12:15:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "v3...ii",
+    "module_id": "m3...hh",
+    "name": "High-Autonomy Path",
+    "description": "For learners with prior facilitation experience.",
+    "created_at": "2026-06-29T12:15:00Z",
+    "updated_at": "2026-06-29T12:15:00Z"
+  }
 }
 ```
 
@@ -80,9 +84,9 @@ Adds a new variant to a module. Variants are the personalised paths through a mo
 
 ```json
 {
-  "error": {
-    "code": "module_not_found",
-    "message": "module not found"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "module not found",
+  "data": null
 }
 ```

@@ -114,36 +114,40 @@ All subsequent state transitions (`status`, `completed_at`, `vendor_payment_inte
 
 ```json
 {
-  "id": "f201...3b",
-  "vendor": "stripe",
-  "vendor_checkout_session_id": "cs_test_a1b2c3...",
-  "status": "open",
-  "url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3...",
-  "amount_total": 1999,
-  "currency": "USD",
-  "expires_at": "2026-06-18T15:30:00Z",
-  "line_items": [
-    {
-      "billing_product_id": "a9c3...0f",
-      "billing_price_id": "c8f1...9a",
-      "vendor_product_id": "prod_NXyZ123abc",
-      "vendor_price_id": "price_1Q3xYz2eZvKYlo2C",
-      "quantity": 1,
-      "coupon": null,
-      "product": {
-        "name": "Onti Plus",
-        "onti_product_kind": "onti_package",
-        "onti_product_id": "a9c3...0f"
-      },
-      "price": {
-        "type": "recurring",
-        "unit_amount": 1999,
-        "currency": "USD",
-        "interval": "month",
-        "interval_count": 1
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "f201...3b",
+    "vendor": "stripe",
+    "vendor_checkout_session_id": "cs_test_a1b2c3...",
+    "status": "open",
+    "url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3...",
+    "amount_total": 1999,
+    "currency": "USD",
+    "expires_at": "2026-06-18T15:30:00Z",
+    "line_items": [
+      {
+        "billing_product_id": "a9c3...0f",
+        "billing_price_id": "c8f1...9a",
+        "vendor_product_id": "prod_NXyZ123abc",
+        "vendor_price_id": "price_1Q3xYz2eZvKYlo2C",
+        "quantity": 1,
+        "coupon": null,
+        "product": {
+          "name": "Onti Plus",
+          "onti_product_kind": "onti_package",
+          "onti_product_id": "a9c3...0f"
+        },
+        "price": {
+          "type": "recurring",
+          "unit_amount": 1999,
+          "currency": "USD",
+          "interval": "month",
+          "interval_count": 1
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -179,10 +183,10 @@ All subsequent state transitions (`status`, `completed_at`, `vendor_payment_inte
 
 ```json
 {
-  "error": {
-    "code": "invalid_price",
-    "message": "billing_price_id 'c8f1...9a' is archived or does not belong to billing_product_id 'a9c3...0f'"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "billing_price_id 'c8f1...9a' is archived or does not belong to billing_product_id 'a9c3...0f'",
+  "data": null
 }
 ```
 

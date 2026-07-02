@@ -36,29 +36,33 @@ Returns the learner's progress summary for a course. Includes overall completion
 
 ```json
 {
-  "course_id": "1aa2...d4",
-  "completion_rate": 0.5,
-  "modules": [
-    {
-      "module_id": "m1...cc",
-      "assigned_variant_id": "v2...dd",
-      "completion_rate": 1.0,
-      "contents": [
-        {
-          "content_id": "c1...ff",
-          "started": true,
-          "completed": true,
-          "completed_at": "2026-06-28T09:15:00Z"
-        }
-      ]
-    },
-    {
-      "module_id": "m2...ee",
-      "assigned_variant_id": null,
-      "completion_rate": 0.0,
-      "contents": []
-    }
-  ]
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "completion_rate": 0.5,
+    "modules": [
+      {
+        "module_id": "m1...cc",
+        "assigned_variant_id": "v2...dd",
+        "completion_rate": 1.0,
+        "contents": [
+          {
+            "content_id": "c1...ff",
+            "started": true,
+            "completed": true,
+            "completed_at": "2026-06-28T09:15:00Z"
+          }
+        ]
+      },
+      {
+        "module_id": "m2...ee",
+        "assigned_variant_id": null,
+        "completion_rate": 0.0,
+        "contents": []
+      }
+    ]
+  }
 }
 ```
 
@@ -99,9 +103,9 @@ Returns the learner's progress summary for a course. Includes overall completion
 
 ```json
 {
-  "error": {
-    "code": "not_enrolled",
-    "message": "learner is not enrolled in this course"
-  }
+  "status": 403,
+  "message": "Forbidden",
+  "error": "learner is not enrolled in this course",
+  "data": null
 }
 ```

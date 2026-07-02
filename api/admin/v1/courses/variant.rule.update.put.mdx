@@ -1,7 +1,7 @@
 ---
 title: "variant-rules-update"
-api: "v1"
-endpoint: "/admin/v1/variant-policies/:id/rules/:rid"
+api: "admin"
+endpoint: "/internal/v1/admin/variant-policies/:id/rules/:rid"
 method: "put"
 client: "admin"
 tag: "api"
@@ -65,26 +65,30 @@ Updates an existing assignment rule. All fields are optional — only provided f
 
 ```json
 {
-  "id": "r1...ll",
-  "policy_id": "p1...kk",
-  "name": "Experienced learners → High-Autonomy",
-  "target_variant_id": "v3...ii",
-  "priority": 5,
-  "match_mode": "all",
-  "conditions": [
-    {
-      "question_id": "q1...aa",
-      "operator": "in",
-      "expected": ["intermediate", "advanced"]
-    },
-    {
-      "question_id": "q2...bb",
-      "operator": "gte",
-      "expected": 4
-    }
-  ],
-  "created_at": "2026-06-29T12:50:00Z",
-  "updated_at": "2026-06-29T13:10:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "r1...ll",
+    "policy_id": "p1...kk",
+    "name": "Experienced learners → High-Autonomy",
+    "target_variant_id": "v3...ii",
+    "priority": 5,
+    "match_mode": "all",
+    "conditions": [
+      {
+        "question_id": "q1...aa",
+        "operator": "in",
+        "expected": ["intermediate", "advanced"]
+      },
+      {
+        "question_id": "q2...bb",
+        "operator": "gte",
+        "expected": 4
+      }
+    ],
+    "created_at": "2026-06-29T12:50:00Z",
+    "updated_at": "2026-06-29T13:10:00Z"
+  }
 }
 ```
 
@@ -100,9 +104,9 @@ Updates an existing assignment rule. All fields are optional — only provided f
 
 ```json
 {
-  "error": {
-    "code": "not_found",
-    "message": "rule not found in this policy"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "rule not found in this policy",
+  "data": null
 }
 ```

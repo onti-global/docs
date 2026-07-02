@@ -1,7 +1,7 @@
 ---
 title: "kpis.get.md"
 api: "admin"
-endpoint: "internal/v1/admin/kpis"
+endpoint: "/internal/v1/admin/kpis"
 method: "post"
 client: "admin"
 tag: "api"
@@ -46,29 +46,33 @@ No request body.
 
 ```json
 {
-  "as_of": "2026-06-23T17:42:00Z",
-  "currency": "USD",
-  "users": {
-    "total": 18432,
-    "active_30d": 6210,
-    "new_7d": 284,
-    "new_30d": 1109
-  },
-  "revenue": {
-    "mrr": 4823900,
-    "mrr_delta_30d": 218400,
-    "gross_volume_30d": 6120450,
-    "currency": "USD"
-  },
-  "entitlements": {
-    "active_user_products": 9821,
-    "active_onti_package_subscribers": 1342,
-    "active_course_enrollments": 7044
-  },
-  "checkout": {
-    "sessions_created_7d": 612,
-    "sessions_completed_7d": 419,
-    "conversion_rate_7d": 0.6846
+  "status": 200,
+  "message": "",
+  "data": {
+    "as_of": "2026-06-23T17:42:00Z",
+    "currency": "USD",
+    "users": {
+      "total": 18432,
+      "active_30d": 6210,
+      "new_7d": 284,
+      "new_30d": 1109
+    },
+    "revenue": {
+      "mrr": 4823900,
+      "mrr_delta_30d": 218400,
+      "gross_volume_30d": 6120450,
+      "currency": "USD"
+    },
+    "entitlements": {
+      "active_user_products": 9821,
+      "active_onti_package_subscribers": 1342,
+      "active_course_enrollments": 7044
+    },
+    "checkout": {
+      "sessions_created_7d": 612,
+      "sessions_completed_7d": 419,
+      "conversion_rate_7d": 0.6846
+    }
   }
 }
 ```
@@ -106,10 +110,10 @@ No request body.
 
 ```json
 {
-  "error": {
-    "code": "forbidden",
-    "message": "admin_dashboard_role claim must be 'admin' or 'analyst'"
-  }
+  "status": 403,
+  "message": "Forbidden",
+  "error": "admin_dashboard_role claim must be 'admin' or 'analyst'",
+  "data": null
 }
 ```
 

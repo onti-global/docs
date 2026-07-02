@@ -1,7 +1,7 @@
 ---
 title: "assessment-questions-create"
-api: "v1"
-endpoint: "/admin/v1/assessment-flows/:id/questions"
+api: "admin"
+endpoint: "/internal/v1/admin/assessment-flows/:id/questions"
 method: "post"
 client: "admin"
 tag: "api"
@@ -67,19 +67,23 @@ Adds a question to an assessment flow. `options` is required for `single_choice`
 
 ```json
 {
-  "id": "q1...aa",
-  "flow_id": "f3a1...88",
-  "type": "single_choice",
-  "question": "When a client is stuck, your first instinct is to…",
-  "options": [
-    { "value": "ask_questions", "label": "Ask open-ended questions" },
-    { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
-    { "value": "share_experience", "label": "Share a relevant personal experience" }
-  ],
-  "position": 0,
-  "required": true,
-  "created_at": "2026-06-29T12:35:00Z",
-  "updated_at": "2026-06-29T12:35:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "q1...aa",
+    "flow_id": "f3a1...88",
+    "type": "single_choice",
+    "question": "When a client is stuck, your first instinct is to…",
+    "options": [
+      { "value": "ask_questions", "label": "Ask open-ended questions" },
+      { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+      { "value": "share_experience", "label": "Share a relevant personal experience" }
+    ],
+    "position": 0,
+    "required": true,
+    "created_at": "2026-06-29T12:35:00Z",
+    "updated_at": "2026-06-29T12:35:00Z"
+  }
 }
 ```
 
@@ -95,9 +99,9 @@ Adds a question to an assessment flow. `options` is required for `single_choice`
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "options is required for type single_choice"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "options is required for type single_choice",
+  "data": null
 }
 ```

@@ -1,7 +1,7 @@
 ---
 title: "assignments-update"
-api: "v1"
-endpoint: "/admin/v1/assignments/:id"
+api: "admin"
+endpoint: "/internal/v1/admin/assignments/:id"
 method: "put"
 client: "admin"
 tag: "api"
@@ -48,13 +48,17 @@ Manually overrides a learner's variant assignment for a module. Use this to corr
 
 ```json
 {
-  "id": "a1...mm",
-  "user_id": "9c0a...77",
-  "module_id": "m1...cc",
-  "variant_id": "v3...ii",
-  "assigned_at": "2026-06-29T14:00:00Z",
-  "created_at": "2026-06-29T10:05:00Z",
-  "updated_at": "2026-06-29T14:00:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "a1...mm",
+    "user_id": "9c0a...77",
+    "module_id": "m1...cc",
+    "variant_id": "v3...ii",
+    "assigned_at": "2026-06-29T14:00:00Z",
+    "created_at": "2026-06-29T10:05:00Z",
+    "updated_at": "2026-06-29T14:00:00Z"
+  }
 }
 ```
 
@@ -70,9 +74,9 @@ Manually overrides a learner's variant assignment for a module. Use this to corr
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "variant_id does not belong to the module of this assignment"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "variant_id does not belong to the module of this assignment",
+  "data": null
 }
 ```

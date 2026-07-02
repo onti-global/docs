@@ -321,9 +321,19 @@
                       "api/internal/v1/whatsapp/webhook.post",
                       "api/internal/v1/whatsapp/messages.post"
                     ]
-                  },
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "version": "admin",
+            "tabs": [
+              {
+                "tab": "v1",
+                "groups": [
                   {
-                    "group": "admin",
+                    "group": "kpis",
                     "pages": [
                       "api/admin/v1/kpis-get-md"
                     ]

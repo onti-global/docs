@@ -1,7 +1,7 @@
 ---
 title: "assignments-list"
-api: "v1"
-endpoint: "/admin/v1/courses/:id/assignments"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/assignments"
 method: "get"
 client: "admin"
 tag: "api"
@@ -44,28 +44,32 @@ Returns all variant assignments for a course — one row per (learner, module) p
 
 ```json
 {
-  "items": [
-    {
-      "id": "a1...mm",
-      "user_id": "9c0a...77",
-      "module_id": "m1...cc",
-      "variant_id": "v2...dd",
-      "assigned_at": "2026-06-29T10:05:00Z",
-      "learner": {
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": "a1...mm",
         "user_id": "9c0a...77",
-        "display_name": "Ana García"
-      },
-      "module": {
-        "id": "m1...cc",
-        "title": "Module 1 — The Coaching Mindset"
-      },
-      "variant": {
-        "id": "v2...dd",
-        "name": "Standard Path"
+        "module_id": "m1...cc",
+        "variant_id": "v2...dd",
+        "assigned_at": "2026-06-29T10:05:00Z",
+        "learner": {
+          "user_id": "9c0a...77",
+          "display_name": "Ana García"
+        },
+        "module": {
+          "id": "m1...cc",
+          "title": "Module 1 — The Coaching Mindset"
+        },
+        "variant": {
+          "id": "v2...dd",
+          "name": "Standard Path"
+        }
       }
-    }
-  ],
-  "cursor": null
+    ],
+    "cursor": null
+  }
 }
 ```
 
@@ -98,9 +102,9 @@ Returns all variant assignments for a course — one row per (learner, module) p
 
 ```json
 {
-  "error": {
-    "code": "course_not_found",
-    "message": "course not found"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "course not found",
+  "data": null
 }
 ```

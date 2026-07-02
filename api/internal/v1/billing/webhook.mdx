@@ -91,6 +91,8 @@ Notes on the transitions:
 
 ## Response body
 
+This endpoint is a webhook receiver — its response is consumed by the vendor (Stripe), not by our own clients, so it does **not** use the shared `ok()` / `fail()` envelope from `src/utils/response.ts`. The body shape below is deliberately explicit and vendor-facing.
+
 `200 OK` — the event was accepted and persisted (or was a duplicate of one already persisted).
 
 ```json

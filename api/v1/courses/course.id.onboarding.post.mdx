@@ -62,13 +62,17 @@ Submits or updates the learner's intake questionnaire answers for a course. Re-s
 
 ```json
 {
-  "course_id": "1aa2...d4",
-  "onboarding_version": 1,
-  "answers": {
-    "q1...aa": "beginner",
-    "q2...bb": "Build confidence in client sessions"
-  },
-  "completed_at": "2026-06-29T10:05:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "onboarding_version": 1,
+    "answers": {
+      "q1...aa": "beginner",
+      "q2...bb": "Build confidence in client sessions"
+    },
+    "completed_at": "2026-06-29T10:05:00Z"
+  }
 }
 ```
 
@@ -93,9 +97,9 @@ Submits or updates the learner's intake questionnaire answers for a course. Re-s
 
 ```json
 {
-  "error": {
-    "code": "invalid_answer",
-    "message": "answer for question q1...aa must be one of: none, beginner, intermediate, advanced"
-  }
+  "status": 422,
+  "message": "Validation failed",
+  "error": "answer for question q1...aa must be one of: none, beginner, intermediate, advanced",
+  "data": null
 }
 ```

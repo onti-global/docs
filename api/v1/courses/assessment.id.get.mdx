@@ -35,37 +35,41 @@ Returns an assessment flow definition — its title, version, and ordered questi
 
 ```json
 {
-  "id": "f3a1...88",
-  "title": "Coaching Style Assessment",
-  "version": 2,
-  "questions": [
-    {
-      "id": "q1...aa",
-      "type": "single_choice",
-      "question": "When a client is stuck, your first instinct is to…",
-      "options": [
-        { "value": "ask_questions", "label": "Ask open-ended questions" },
-        { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
-        { "value": "share_experience", "label": "Share a relevant personal experience" }
-      ],
-      "position": 0,
-      "required": true
-    },
-    {
-      "id": "q2...bb",
-      "type": "scale",
-      "question": "Rate your comfort with silence in sessions (1 = very uncomfortable, 5 = very comfortable).",
-      "options": null,
-      "position": 1,
-      "required": true
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "f3a1...88",
+    "title": "Coaching Style Assessment",
+    "version": 2,
+    "questions": [
+      {
+        "id": "q1...aa",
+        "type": "single_choice",
+        "question": "When a client is stuck, your first instinct is to…",
+        "options": [
+          { "value": "ask_questions", "label": "Ask open-ended questions" },
+          { "value": "offer_tools", "label": "Offer a concrete tool or framework" },
+          { "value": "share_experience", "label": "Share a relevant personal experience" }
+        ],
+        "position": 0,
+        "required": true
+      },
+      {
+        "id": "q2...bb",
+        "type": "scale",
+        "question": "Rate your comfort with silence in sessions (1 = very uncomfortable, 5 = very comfortable).",
+        "options": null,
+        "position": 1,
+        "required": true
+      }
+    ],
+    "response": {
+      "answers": {
+        "q1...aa": "ask_questions",
+        "q2...bb": 4
+      },
+      "completed_at": "2026-06-20T14:30:00Z"
     }
-  ],
-  "response": {
-    "answers": {
-      "q1...aa": "ask_questions",
-      "q2...bb": 4
-    },
-    "completed_at": "2026-06-20T14:30:00Z"
   }
 }
 ```
@@ -103,9 +107,9 @@ Returns an assessment flow definition — its title, version, and ordered questi
 
 ```json
 {
-  "error": {
-    "code": "not_found",
-    "message": "assessment flow not found"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "assessment flow not found",
+  "data": null
 }
 ```

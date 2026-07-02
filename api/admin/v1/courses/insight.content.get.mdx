@@ -1,7 +1,7 @@
 ---
 title: "insights-by-content"
-api: "v1"
-endpoint: "/admin/v1/contents/:id/insights"
+api: "admin"
+endpoint: "/internal/v1/admin/contents/:id/insights"
 method: "get"
 client: "admin"
 tag: "api"
@@ -43,22 +43,26 @@ Returns all insight memory records generated from a specific content item, acros
 
 ```json
 {
-  "items": [
-    {
-      "id": "i2...oo",
-      "user_id": "9c0a...77",
-      "content_id": "c1...ff",
-      "insight": "Learner showed strong resonance with the concept of presence — paused the video twice to journal.",
-      "data": {
-        "tags": ["presence", "engagement"],
-        "confidence": 0.92
-      },
-      "status": "active",
-      "created_at": "2026-06-28T10:00:00Z",
-      "updated_at": "2026-06-28T10:00:00Z"
-    }
-  ],
-  "cursor": null
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": "i2...oo",
+        "user_id": "9c0a...77",
+        "content_id": "c1...ff",
+        "insight": "Learner showed strong resonance with the concept of presence — paused the video twice to journal.",
+        "data": {
+          "tags": ["presence", "engagement"],
+          "confidence": 0.92
+        },
+        "status": "active",
+        "created_at": "2026-06-28T10:00:00Z",
+        "updated_at": "2026-06-28T10:00:00Z"
+      }
+    ],
+    "cursor": null
+  }
 }
 ```
 
@@ -94,10 +98,10 @@ Returns all insight memory records generated from a specific content item, acros
 
 ```json
 {
-  "error": {
-    "code": "content_not_found",
-    "message": "content item not found"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "content item not found",
+  "data": null
 }
 ```
 

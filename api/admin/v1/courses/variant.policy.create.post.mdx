@@ -1,7 +1,7 @@
 ---
 title: "variant-policies-create"
-api: "v1"
-endpoint: "/admin/v1/variant-policies"
+api: "admin"
+endpoint: "/internal/v1/admin/variant-policies"
 method: "post"
 client: "admin"
 tag: "api"
@@ -61,15 +61,19 @@ Creates a policy that binds an assessment flow to a course or module context and
 
 ```json
 {
-  "id": "p1...kk",
-  "name": "Module 1 Variant Assignment",
-  "assessment_flow_id": "f3a1...88",
-  "course_id": null,
-  "module_id": "m1...cc",
-  "trigger_point": "before_module",
-  "default_variant_id": "v2...dd",
-  "created_at": "2026-06-29T12:45:00Z",
-  "updated_at": "2026-06-29T12:45:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "p1...kk",
+    "name": "Module 1 Variant Assignment",
+    "assessment_flow_id": "f3a1...88",
+    "course_id": null,
+    "module_id": "m1...cc",
+    "trigger_point": "before_module",
+    "default_variant_id": "v2...dd",
+    "created_at": "2026-06-29T12:45:00Z",
+    "updated_at": "2026-06-29T12:45:00Z"
+  }
 }
 ```
 
@@ -87,9 +91,9 @@ Creates a policy that binds an assessment flow to a course or module context and
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "module_id is required when trigger_point is before_module"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "module_id is required when trigger_point is before_module",
+  "data": null
 }
 ```

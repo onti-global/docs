@@ -1,7 +1,7 @@
 ---
 title: "modules-create"
-api: "v1"
-endpoint: "/admin/v1/courses/:id/modules"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/modules"
 method: "post"
 client: "admin"
 tag: "api"
@@ -52,13 +52,17 @@ Adds a new module to a course. Modules are the ordered chapters learners move th
 
 ```json
 {
-  "id": "m3...hh",
-  "course_id": "3cc4...e9",
-  "title": "Module 3 — Emotional Regulation",
-  "description": "Techniques for managing emotional state in coaching sessions.",
-  "position": 2,
-  "created_at": "2026-06-29T12:10:00Z",
-  "updated_at": "2026-06-29T12:10:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "m3...hh",
+    "course_id": "3cc4...e9",
+    "title": "Module 3 — Emotional Regulation",
+    "description": "Techniques for managing emotional state in coaching sessions.",
+    "position": 2,
+    "created_at": "2026-06-29T12:10:00Z",
+    "updated_at": "2026-06-29T12:10:00Z"
+  }
 }
 ```
 
@@ -84,9 +88,9 @@ Adds a new module to a course. Modules are the ordered chapters learners move th
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "title is required and must be a non-empty string"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "title is required and must be a non-empty string",
+  "data": null
 }
 ```

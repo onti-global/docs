@@ -36,40 +36,44 @@ Returns the intake questionnaire for a course along with the learner's existing 
 
 ```json
 {
-  "flow": {
-    "id": "f3a1...88",
-    "title": "Pre-course questionnaire",
-    "version": 1,
-    "questions": [
-      {
-        "id": "q1...aa",
-        "type": "single_choice",
-        "question": "How would you describe your coaching experience?",
-        "options": [
-          { "value": "none", "label": "No experience" },
-          { "value": "beginner", "label": "Less than 1 year" },
-          { "value": "intermediate", "label": "1–3 years" },
-          { "value": "advanced", "label": "More than 3 years" }
-        ],
-        "position": 0,
-        "required": true
-      },
-      {
-        "id": "q2...bb",
-        "type": "text",
-        "question": "What is your primary goal for this course?",
-        "options": null,
-        "position": 1,
-        "required": false
-      }
-    ]
-  },
-  "response": {
-    "answers": {
-      "q1...aa": "beginner",
-      "q2...bb": "Build confidence in client sessions"
+  "status": 200,
+  "message": "",
+  "data": {
+    "flow": {
+      "id": "f3a1...88",
+      "title": "Pre-course questionnaire",
+      "version": 1,
+      "questions": [
+        {
+          "id": "q1...aa",
+          "type": "single_choice",
+          "question": "How would you describe your coaching experience?",
+          "options": [
+            { "value": "none", "label": "No experience" },
+            { "value": "beginner", "label": "Less than 1 year" },
+            { "value": "intermediate", "label": "1–3 years" },
+            { "value": "advanced", "label": "More than 3 years" }
+          ],
+          "position": 0,
+          "required": true
+        },
+        {
+          "id": "q2...bb",
+          "type": "text",
+          "question": "What is your primary goal for this course?",
+          "options": null,
+          "position": 1,
+          "required": false
+        }
+      ]
     },
-    "completed_at": "2026-06-29T10:05:00Z"
+    "response": {
+      "answers": {
+        "q1...aa": "beginner",
+        "q2...bb": "Build confidence in client sessions"
+      },
+      "completed_at": "2026-06-29T10:05:00Z"
+    }
   }
 }
 ```
@@ -117,9 +121,9 @@ Returns the intake questionnaire for a course along with the learner's existing 
 
 ```json
 {
-  "error": {
-    "code": "not_enrolled",
-    "message": "learner is not enrolled in this course"
-  }
+  "status": 403,
+  "message": "Forbidden",
+  "error": "learner is not enrolled in this course",
+  "data": null
 }
 ```
