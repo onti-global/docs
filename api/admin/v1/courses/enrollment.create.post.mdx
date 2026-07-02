@@ -1,7 +1,7 @@
 ---
 title: "enrollments-create"
-api: "v1"
-endpoint: "/admin/v1/enrollments"
+api: "admin"
+endpoint: "/internal/v1/admin/enrollments"
 method: "post"
 client: "admin"
 tag: "api"
@@ -44,16 +44,22 @@ Manually enrolls a user in a course, bypassing entitlement checks. Used for admi
 
 ```json
 {
-  "id": "e9f0...12",
-  "user_id": "9c0a...77",
-  "course_id": "1aa2...d4",
-  "status": "active",
-  "enrolled_at": "2026-06-29T10:00:00Z",
-  "completed_at": null,
-  "created_at": "2026-06-29T10:00:00Z",
-  "updated_at": "2026-06-29T10:00:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "e9f0...12",
+    "user_id": "9c0a...77",
+    "course_id": "1aa2...d4",
+    "status": "active",
+    "enrolled_at": "2026-06-29T10:00:00Z",
+    "completed_at": null,
+    "created_at": "2026-06-29T10:00:00Z",
+    "updated_at": "2026-06-29T10:00:00Z"
+  }
 }
 ```
+
+For the idempotent `200 OK` case, `message` is `""` — everything else in the envelope is unchanged.
 
 ## Errors
 
@@ -68,9 +74,9 @@ Manually enrolls a user in a course, bypassing entitlement checks. Used for admi
 
 ```json
 {
-  "error": {
-    "code": "user_not_found",
-    "message": "no user found with the provided user_id"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "no user found with the provided user_id",
+  "data": null
 }
 ```

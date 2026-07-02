@@ -1,7 +1,7 @@
 ---
 title: "contents-create"
-api: "v1"
-endpoint: "/admin/v1/variants/:id/contents"
+api: "admin"
+endpoint: "/internal/v1/admin/variants/:id/contents"
 method: "post"
 client: "admin"
 tag: "api"
@@ -56,15 +56,19 @@ Adds a new content item to a variant. `type` determines the rendering mode and w
 
 ```json
 {
-  "id": "c3...jj",
-  "variant_id": "v3...ii",
-  "type": "video",
-  "title": "Introduction to Emotional Regulation",
-  "url": "https://cdn.example.com/videos/intro-er.mp4",
-  "body": null,
-  "position": 0,
-  "created_at": "2026-06-29T12:20:00Z",
-  "updated_at": "2026-06-29T12:20:00Z"
+  "status": 200,
+  "message": "Resource created",
+  "data": {
+    "id": "c3...jj",
+    "variant_id": "v3...ii",
+    "type": "video",
+    "title": "Introduction to Emotional Regulation",
+    "url": "https://cdn.example.com/videos/intro-er.mp4",
+    "body": null,
+    "position": 0,
+    "created_at": "2026-06-29T12:20:00Z",
+    "updated_at": "2026-06-29T12:20:00Z"
+  }
 }
 ```
 
@@ -92,9 +96,9 @@ Adds a new content item to a variant. `type` determines the rendering mode and w
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "url is required for type video"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "url is required for type video",
+  "data": null
 }
 ```

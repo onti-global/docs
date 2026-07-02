@@ -61,18 +61,22 @@ Submits or updates the learner's answers for an assessment flow. Re-submitting o
 
 ```json
 {
-  "flow_id": "f3a1...88",
-  "answers": {
-    "q1...aa": "ask_questions",
-    "q2...bb": 4
-  },
-  "completed_at": "2026-06-29T11:00:00Z",
-  "assignments": [
-    {
-      "module_id": "m1...cc",
-      "variant_id": "v2...dd"
-    }
-  ]
+  "status": 200,
+  "message": "",
+  "data": {
+    "flow_id": "f3a1...88",
+    "answers": {
+      "q1...aa": "ask_questions",
+      "q2...bb": 4
+    },
+    "completed_at": "2026-06-29T11:00:00Z",
+    "assignments": [
+      {
+        "module_id": "m1...cc",
+        "variant_id": "v2...dd"
+      }
+    ]
+  }
 }
 ```
 
@@ -102,9 +106,9 @@ Submits or updates the learner's answers for an assessment flow. Re-submitting o
 
 ```json
 {
-  "error": {
-    "code": "invalid_answer",
-    "message": "answer for question q2...bb must be an integer"
-  }
+  "status": 422,
+  "message": "Validation failed",
+  "error": "answer for question q2...bb must be an integer",
+  "data": null
 }
 ```

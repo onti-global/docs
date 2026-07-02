@@ -36,39 +36,43 @@ Returns the ordered content items for a variant along with the learner's progres
 
 ```json
 {
-  "variant": {
-    "id": "v2...dd",
-    "module_id": "m1...cc",
-    "name": "Standard Path"
-  },
-  "items": [
-    {
-      "id": "c1...ff",
-      "type": "video",
-      "title": "Welcome to the Coaching Mindset",
-      "url": "https://cdn.example.com/videos/c1ff.mp4",
-      "body": null,
-      "position": 0,
-      "progress": {
-        "started": true,
-        "completed": true,
-        "completed_at": "2026-06-28T09:15:00Z"
-      }
+  "status": 200,
+  "message": "",
+  "data": {
+    "variant": {
+      "id": "v2...dd",
+      "module_id": "m1...cc",
+      "name": "Standard Path"
     },
-    {
-      "id": "c2...gg",
-      "type": "quiz",
-      "title": "Reflection Check",
-      "url": null,
-      "body": "{\"questions\":[...]}",
-      "position": 1,
-      "progress": {
-        "started": false,
-        "completed": false,
-        "completed_at": null
+    "items": [
+      {
+        "id": "c1...ff",
+        "type": "video",
+        "title": "Welcome to the Coaching Mindset",
+        "url": "https://cdn.example.com/videos/c1ff.mp4",
+        "body": null,
+        "position": 0,
+        "progress": {
+          "started": true,
+          "completed": true,
+          "completed_at": "2026-06-28T09:15:00Z"
+        }
+      },
+      {
+        "id": "c2...gg",
+        "type": "quiz",
+        "title": "Reflection Check",
+        "url": null,
+        "body": "{\"questions\":[...]}",
+        "position": 1,
+        "progress": {
+          "started": false,
+          "completed": false,
+          "completed_at": null
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -107,9 +111,9 @@ Returns the ordered content items for a variant along with the learner's progres
 
 ```json
 {
-  "error": {
-    "code": "variant_not_assigned",
-    "message": "learner is not assigned to this variant"
-  }
+  "status": 403,
+  "message": "Forbidden",
+  "error": "learner is not assigned to this variant",
+  "data": null
 }
 ```

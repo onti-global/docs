@@ -36,12 +36,16 @@ Returns a single published course by id.
 
 ```json
 {
-  "id": "1aa2...d4",
-  "title": "Foundations of Coaching",
-  "description": "An introduction to core coaching frameworks.",
-  "status": "published",
-  "created_at": "2026-01-15T09:00:00Z",
-  "updated_at": "2026-01-15T09:00:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "1aa2...d4",
+    "title": "Foundations of Coaching",
+    "description": "An introduction to core coaching frameworks.",
+    "status": "published",
+    "created_at": "2026-01-15T09:00:00Z",
+    "updated_at": "2026-01-15T09:00:00Z"
+  }
 }
 ```
 
@@ -66,9 +70,9 @@ Returns a single published course by id.
 
 ```json
 {
-  "error": {
-    "code": "not_found",
-    "message": "course not found"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "course not found",
+  "data": null
 }
 ```

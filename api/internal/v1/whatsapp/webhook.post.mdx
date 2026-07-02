@@ -97,6 +97,8 @@ Unrecognized `field` values or malformed sub-objects are logged and skipped — 
 
 ## Response body
 
+This endpoint is a webhook receiver — its response is consumed by Meta's delivery system, not by our own clients, so it does **not** use the shared `ok()` / `fail()` envelope from `src/utils/response.ts`. The body shape below is the minimal ack Meta's Cloud API expects.
+
 `200 OK` — every message/status in the payload was persisted (or was a duplicate of one already persisted).
 
 ```json

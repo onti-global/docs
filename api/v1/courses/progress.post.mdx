@@ -45,10 +45,14 @@ Records a learner's progress event for a content item. Use `started` when the le
 
 ```json
 {
-  "content_id": "c1...ff",
-  "started": true,
-  "completed": true,
-  "completed_at": "2026-06-29T11:20:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "content_id": "c1...ff",
+    "started": true,
+    "completed": true,
+    "completed_at": "2026-06-29T11:20:00Z"
+  }
 }
 ```
 
@@ -71,9 +75,9 @@ Records a learner's progress event for a content item. Use `started` when the le
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "event must be one of: started, completed"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "event must be one of: started, completed",
+  "data": null
 }
 ```

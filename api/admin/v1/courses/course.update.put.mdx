@@ -1,7 +1,7 @@
 ---
 title: "courses-update"
-api: "v1"
-endpoint: "/admin/v1/courses/:id"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id"
 method: "put"
 client: "admin"
 tag: "api"
@@ -54,12 +54,16 @@ All fields are optional. Only provided fields are updated.
 
 ```json
 {
-  "id": "3cc4...e9",
-  "title": "Advanced Facilitation — Revised",
-  "description": "Updated description.",
-  "status": "published",
-  "created_at": "2026-06-29T12:00:00Z",
-  "updated_at": "2026-06-29T13:00:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "3cc4...e9",
+    "title": "Advanced Facilitation — Revised",
+    "description": "Updated description.",
+    "status": "published",
+    "created_at": "2026-06-29T12:00:00Z",
+    "updated_at": "2026-06-29T13:00:00Z"
+  }
 }
 ```
 
@@ -75,9 +79,9 @@ All fields are optional. Only provided fields are updated.
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "status must be one of: draft, published, archived"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "status must be one of: draft, published, archived",
+  "data": null
 }
 ```

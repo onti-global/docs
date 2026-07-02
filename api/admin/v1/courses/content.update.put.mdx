@@ -1,7 +1,7 @@
 ---
 title: "contents-update"
-api: "v1"
-endpoint: "/admin/v1/contents/:id"
+api: "admin"
+endpoint: "/internal/v1/admin/contents/:id"
 method: "put"
 client: "admin"
 tag: "api"
@@ -53,15 +53,19 @@ Updates a content item's title, URL, body, or position. All fields are optional 
 
 ```json
 {
-  "id": "c3...jj",
-  "variant_id": "v3...ii",
-  "type": "video",
-  "title": "Introduction to Emotional Regulation — Updated",
-  "url": "https://cdn.example.com/videos/intro-er-v2.mp4",
-  "body": null,
-  "position": 1,
-  "created_at": "2026-06-29T12:20:00Z",
-  "updated_at": "2026-06-29T13:00:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "c3...jj",
+    "variant_id": "v3...ii",
+    "type": "video",
+    "title": "Introduction to Emotional Regulation — Updated",
+    "url": "https://cdn.example.com/videos/intro-er-v2.mp4",
+    "body": null,
+    "position": 1,
+    "created_at": "2026-06-29T12:20:00Z",
+    "updated_at": "2026-06-29T13:00:00Z"
+  }
 }
 ```
 
@@ -77,9 +81,9 @@ Updates a content item's title, URL, body, or position. All fields are optional 
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "title must be a non-empty string"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "title must be a non-empty string",
+  "data": null
 }
 ```

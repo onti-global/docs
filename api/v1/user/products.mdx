@@ -28,48 +28,52 @@ Provides the Apps with the product-level access a user has based on their purcha
 
 ```json
 {
-  "courses": [
-    {
-      "id": "b3f5...e1",
-      "status": "active",
-      "granted_at": "2026-04-12T10:14:22Z",
-      "expires_at": null,
-      "course": {
-        "id": "1aa2...d4",
-        "title": "Foundations of Coaching",
-        "status": "published"
+  "status": 200,
+  "message": "",
+  "data": {
+    "courses": [
+      {
+        "id": "b3f5...e1",
+        "status": "active",
+        "granted_at": "2026-04-12T10:14:22Z",
+        "expires_at": null,
+        "course": {
+          "id": "1aa2...d4",
+          "title": "Foundations of Coaching",
+          "status": "published"
+        }
       }
-    }
-  ],
-  "agents": [
-    {
-      "id": "7d11...aa",
-      "status": "active",
-      "granted_at": "2026-05-01T08:00:00Z",
-      "expires_at": null,
-      "agent": {
-        "id": "55ef...c2",
-        "name": "Resilience Coach",
-        "provider": "anthropic",
-        "model": "claude-sonnet-4-5"
+    ],
+    "agents": [
+      {
+        "id": "7d11...aa",
+        "status": "active",
+        "granted_at": "2026-05-01T08:00:00Z",
+        "expires_at": null,
+        "agent": {
+          "id": "55ef...c2",
+          "name": "Resilience Coach",
+          "provider": "anthropic",
+          "model": "claude-sonnet-4-5"
+        }
       }
-    }
-  ],
-  "packages": [
-    {
-      "id": "f201...3b",
-      "status": "active",
-      "granted_at": "2026-06-01T00:00:00Z",
-      "expires_at": "2026-07-01T00:00:00Z",
-      "package": {
-        "id": "a9c3...0f",
-        "name": "Onti Plus",
-        "monthly_price_cents": 1999,
-        "currency": "USD",
-        "status": "active"
+    ],
+    "packages": [
+      {
+        "id": "f201...3b",
+        "status": "active",
+        "granted_at": "2026-06-01T00:00:00Z",
+        "expires_at": "2026-07-01T00:00:00Z",
+        "package": {
+          "id": "a9c3...0f",
+          "name": "Onti Plus",
+          "monthly_price_cents": 1999,
+          "currency": "USD",
+          "status": "active"
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -104,10 +108,10 @@ Because each entitlement lives in exactly one array, there is no `product_kind` 
 
 ```json
 {
-  "error": {
-    "code": "invalid_query_param",
-    "message": "product_kind must be one of: course, agent, onti_package"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "product_kind must be one of: course, agent, onti_package",
+  "data": null
 }
 ```
 

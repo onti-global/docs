@@ -36,6 +36,8 @@ This endpoint performs no database reads or writes.
 
 ## Response body
 
+This endpoint is a webhook receiver — its response is consumed by Meta's verification handshake, not by our own clients, so it does **not** use the shared `ok()` / `fail()` envelope from `src/utils/response.ts`. Meta dictates the exact response shape (plain text, no JSON), so it's returned as-is.
+
 `200 OK` — **plain text**, not JSON. The body is the raw `hub.challenge` value, e.g.:
 
 ```

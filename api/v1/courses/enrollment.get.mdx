@@ -36,20 +36,24 @@ Returns all course enrollments for the authenticated learner, optionally filtere
 
 ```json
 {
-  "items": [
-    {
-      "id": "e9f0...12",
-      "course_id": "1aa2...d4",
-      "status": "active",
-      "enrolled_at": "2026-06-29T10:00:00Z",
-      "completed_at": null,
-      "course": {
-        "id": "1aa2...d4",
-        "title": "Foundations of Coaching",
-        "status": "published"
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": "e9f0...12",
+        "course_id": "1aa2...d4",
+        "status": "active",
+        "enrolled_at": "2026-06-29T10:00:00Z",
+        "completed_at": null,
+        "course": {
+          "id": "1aa2...d4",
+          "title": "Foundations of Coaching",
+          "status": "published"
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -80,9 +84,9 @@ Returns all course enrollments for the authenticated learner, optionally filtere
 
 ```json
 {
-  "error": {
-    "code": "invalid_query_param",
-    "message": "status must be one of: active, completed, dropped"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "status must be one of: active, completed, dropped",
+  "data": null
 }
 ```

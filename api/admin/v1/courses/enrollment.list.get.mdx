@@ -1,7 +1,7 @@
 ---
 title: "enrollments-list"
-api: "v1"
-endpoint: "/admin/v1/courses/:id/enrollments"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/enrollments"
 method: "get"
 client: "admin"
 tag: "api"
@@ -43,22 +43,26 @@ Returns all enrollments for a course, optionally filtered by status. Includes ba
 
 ```json
 {
-  "items": [
-    {
-      "id": "e9f0...12",
-      "user_id": "9c0a...77",
-      "course_id": "1aa2...d4",
-      "status": "active",
-      "enrolled_at": "2026-06-29T10:00:00Z",
-      "completed_at": null,
-      "learner": {
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": "e9f0...12",
         "user_id": "9c0a...77",
-        "display_name": "Ana García",
-        "avatar_url": null
+        "course_id": "1aa2...d4",
+        "status": "active",
+        "enrolled_at": "2026-06-29T10:00:00Z",
+        "completed_at": null,
+        "learner": {
+          "user_id": "9c0a...77",
+          "display_name": "Ana García",
+          "avatar_url": null
+        }
       }
-    }
-  ],
-  "cursor": null
+    ],
+    "cursor": null
+  }
 }
 ```
 
@@ -91,9 +95,9 @@ Returns all enrollments for a course, optionally filtered by status. Includes ba
 
 ```json
 {
-  "error": {
-    "code": "invalid_query_param",
-    "message": "status must be one of: active, completed, dropped"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "status must be one of: active, completed, dropped",
+  "data": null
 }
 ```

@@ -36,12 +36,16 @@ Returns the authenticated learner's submitted answers for a content item. Return
 
 ```json
 {
-  "content_id": "c2...gg",
-  "answers": {
-    "question_1": "option_b",
-    "question_2": ["option_a", "option_c"]
-  },
-  "submitted_at": "2026-06-29T11:30:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "content_id": "c2...gg",
+    "answers": {
+      "question_1": "option_b",
+      "question_2": ["option_a", "option_c"]
+    },
+    "submitted_at": "2026-06-29T11:30:00Z"
+  }
 }
 ```
 
@@ -63,9 +67,9 @@ Returns the authenticated learner's submitted answers for a content item. Return
 
 ```json
 {
-  "error": {
-    "code": "no_submission",
-    "message": "no answers submitted for this content item"
-  }
+  "status": 404,
+  "message": "Not found",
+  "error": "no answers submitted for this content item",
+  "data": null
 }
 ```

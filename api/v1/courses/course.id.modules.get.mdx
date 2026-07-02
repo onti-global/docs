@@ -36,23 +36,27 @@ Returns the ordered module list for a course along with the learner's variant as
 
 ```json
 {
-  "course_id": "1aa2...d4",
-  "items": [
-    {
-      "id": "m1...cc",
-      "title": "Module 1 — The Coaching Mindset",
-      "description": "Foundations of a growth-oriented coaching approach.",
-      "position": 0,
-      "assigned_variant_id": "v2...dd"
-    },
-    {
-      "id": "m2...ee",
-      "title": "Module 2 — Active Listening",
-      "description": null,
-      "position": 1,
-      "assigned_variant_id": null
-    }
-  ]
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "items": [
+      {
+        "id": "m1...cc",
+        "title": "Module 1 — The Coaching Mindset",
+        "description": "Foundations of a growth-oriented coaching approach.",
+        "position": 0,
+        "assigned_variant_id": "v2...dd"
+      },
+      {
+        "id": "m2...ee",
+        "title": "Module 2 — Active Listening",
+        "description": null,
+        "position": 1,
+        "assigned_variant_id": null
+      }
+    ]
+  }
 }
 ```
 
@@ -84,10 +88,10 @@ Returns the ordered module list for a course along with the learner's variant as
 
 ```json
 {
-  "error": {
-    "code": "not_enrolled",
-    "message": "learner is not enrolled in this course"
-  }
+  "status": 403,
+  "message": "Forbidden",
+  "error": "learner is not enrolled in this course",
+  "data": null
 }
 ```
 

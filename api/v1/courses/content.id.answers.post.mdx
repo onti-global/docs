@@ -52,12 +52,16 @@ Submits or updates the learner's answers for a quiz or interactive content item.
 
 ```json
 {
-  "content_id": "c2...gg",
-  "answers": {
-    "question_1": "option_b",
-    "question_2": ["option_a", "option_c"]
-  },
-  "submitted_at": "2026-06-29T11:30:00Z"
+  "status": 200,
+  "message": "",
+  "data": {
+    "content_id": "c2...gg",
+    "answers": {
+      "question_1": "option_b",
+      "question_2": ["option_a", "option_c"]
+    },
+    "submitted_at": "2026-06-29T11:30:00Z"
+  }
 }
 ```
 
@@ -79,9 +83,9 @@ Submits or updates the learner's answers for a quiz or interactive content item.
 
 ```json
 {
-  "error": {
-    "code": "invalid_body",
-    "message": "answers must be a non-null object"
-  }
+  "status": 400,
+  "message": "Validation failed",
+  "error": "answers must be a non-null object",
+  "data": null
 }
 ```
