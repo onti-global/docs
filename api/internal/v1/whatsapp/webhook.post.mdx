@@ -1,0 +1,131 @@
+---
+title: "webhook"
+api: "internal"
+endpoint: "/v1/whatsapp/webhook"
+method: "post"
+client: "vendor"
+tag: "api"
+---
+
+# POST WhatsApp Webhook
+
+Receives webhook deliveries from the WhatsApp Cloud API (Meta) and persists them into `whatsapp_conversations` / `whatsapp_messages` — see [`schema.sql`](/schema) §11. This is the single entry point for both **inbound messages from contacts** and **delivery status updates for messages we sent**. It does not generate replies: a separate agent/LLM process (out of scope here) watches `whatsapp_messages` for new inbound rows and calls [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) to respond.
+
+## Authentication
+
+- Authentication is **Meta signature verification**, not a Supabase JWT — the same shape as [`POST /v1/billing/webhook`](/internal/v1/billing/webhook)'s vendor-signature check, adapted to Meta's scheme.
+- The request must carry a valid `X-Hub-Signature-256` header: `sha256=<hex hmac>`, computed by Meta over the **raw** request body using our Meta App Secret (`WHATSAPP_APP_SECRET`). The handler recomputes the HMAC over the raw body (do **not** parse JSON before verifying) and compares in constant time.
+- There is no `x-api-key`-style option here: Meta's webhook delivery format is fixed and only ever carries `X-Hub-Signature-256` — we can't ask Meta to send a custom shared-secret header. Signature verification against `WHATSAPP_APP_SECRET` is the only mechanism available for authenticating inbound deliveries.
+- A missing or invalid signature returns `401 unauthenticated`. Nothing is written to `whatsapp_conversations` or `whatsapp_messages`.
+
+## Request
+
+### Headers
+
+| Header | Required | Description |
+| --- | --- | --- |
+| `X-Hub-Signature-256` | Yes | `sha256=<hmac>` computed by Meta over the raw body using the Meta App Secret. |
+| `Content-Type` | Yes | Always `application/json`. |
+
+### Body
+
+The standard WhatsApp Cloud API webhook envelope (see the "Webhook Payload Reference" folder in the WhatsApp Cloud API Postman collection for the full set of shapes):
+
+```json
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "8856996819413533",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "16505553333",
+              "phone_number_id": "27681414235104944"
+            },
+            "contacts": [
+              { "profile": { "name": "Kerry Fisher" }, "wa_id": "16315551234" }
+            ],
+            "messages": [
+              {
+                "from": "16315551234",
+                "id": "wamid.ABGGFlCGg0cvAgo-sJQh43L5Pe4W",
+                "timestamp": "1603059201",
+                "type": "text",
+                "text": { "body": "Hello this is an answer" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Each `entry[].changes[].value` carries **either** `messages[]` (inbound message from a contact) **or** `statuses[]` (delivery receipt for a message we sent) — never both. A single delivery may contain multiple `entry` items and multiple `changes` per entry; the handler processes every one.
+
+## Behavior
+
+For every `entry[].changes[].value` in the payload:
+
+1. **If `value.messages` is present** (inbound message — this is what makes flow "receive a new conversation" and "receive each message" work):
+   1. Upsert `whatsapp_conversations` on `(business_phone_number_id, wa_id)`, where `business_phone_number_id = value.metadata.phone_number_id` and `wa_id = message.from`:
+      - If no row exists, insert one — this is the moment a brand-new conversation is recognized.
+      - Set `contact_name` from `value.contacts[0].profile.name` (Meta always includes the contact object alongside `messages`).
+      - Set `last_inbound_at` to the message's `timestamp` (Unix seconds, converted to `timestamptz`).
+   2. Insert one `whatsapp_messages` row per message in `value.messages[]`:
+      - `conversation_id` — the row from step 1.
+      - `direction` — `'inbound'`.
+      - `wamid` — `message.id`.
+      - `type` — `message.type` (must be a value of `whatsapp_message_type`; unrecognized types are stored as `'unknown'` with the full payload still preserved in `raw`).
+      - `text_body` — `message.text.body` for `type = 'text'`; the selected option's title for `type = 'button'` / `type = 'interactive'`; `null` otherwise.
+      - `context_wamid` — `message.context.id` if the message is a reply/quote, else `null`.
+      - `status` — `'received'`.
+      - `raw` — the full `message` object, verbatim.
+      - `ON CONFLICT (wamid) WHERE wamid IS NOT NULL DO NOTHING` — Meta retries deliveries at-least-once; duplicates collapse into the first-persisted row.
+2. **If `value.statuses` is present** (delivery receipt for an outbound message):
+   1. For each entry in `value.statuses[]`, update the `whatsapp_messages` row where `wamid = status.id`:
+      - `status` — mapped from `status.status` (`sent` / `delivered` / `read` / `failed`).
+      - `error` — `status.errors`, if present (only on `status.status = 'failed'`).
+3. Return `200` once every message/status in the payload has been persisted (or skipped as a duplicate).
+
+Unrecognized `field` values or malformed sub-objects are logged and skipped — they do **not** fail the whole delivery. Meta disables a webhook subscription after repeated slow or non-`200` responses, so the handler always acknowledges quickly rather than risk losing future deliveries over one bad entry.
+
+## Response body
+
+`200 OK` — every message/status in the payload was persisted (or was a duplicate of one already persisted).
+
+```json
+{
+  "received": true
+}
+```
+
+Per the WhatsApp Cloud API contract, `200` is returned even when some sub-entries were skipped as unrecognized — the important thing is acknowledging the delivery so Meta doesn't retry it.
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid `X-Hub-Signature-256`. |
+| `400` | `invalid_payload` | Body is not valid JSON, or `object` is not `"whatsapp_business_account"`. |
+
+```json
+{
+  "error": {
+    "code": "unauthenticated",
+    "message": "X-Hub-Signature-256 did not match the computed HMAC for this payload."
+  }
+}
+```
+
+## Notes
+
+- This endpoint is intentionally dumb: verify signature, persist rows, return `200`. Deciding *what to reply with* is entirely the job of the agent/LLM process — it is expected to watch `whatsapp_messages` for new `direction = 'inbound'` rows (Supabase Realtime or polling with `service_role`, bypassing RLS — see [`schema.sql`](/schema) §11) and call [`POST /v1/whatsapp/messages`](/internal/v1/whatsapp/messages.post) to send a reply.
+- `whatsapp_conversations` is a continuous thread per `(business_phone_number_id, wa_id)`, not a per-session log — WhatsApp doesn't model discrete "conversation" boundaries beyond the 24-hour customer service window, which is tracked via `last_inbound_at` / `last_outbound_at` rather than a status column.
+- Idempotency on the inbound side is guaranteed by the partial unique index on `whatsapp_messages.wamid`. Idempotency on the status side is a plain update keyed by `wamid` — replaying the same status event is a no-op.
+- `business_phone_number_id` is carried on every row (not assumed to be a single global constant) so a second WhatsApp Business number can be onboarded later without a schema change.

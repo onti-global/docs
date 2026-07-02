@@ -1,0 +1,56 @@
+---
+title: "webhook (verify)"
+api: "internal"
+endpoint: "/v1/whatsapp/webhook"
+method: "get"
+client: "vendor"
+tag: "api"
+---
+
+# GET WhatsApp Webhook Verification
+
+Handles Meta's webhook verification handshake. Meta calls this endpoint once when the Callback URL is first configured (or re-verified) in the App Dashboard's WhatsApp product settings — it is never called as part of normal message delivery. Normal inbound events arrive at [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post).
+
+## Authentication
+
+- No Supabase JWT, no `x-api-key`, no signature header. Verification is entirely via the `hub.verify_token` query parameter, which Meta echoes back from the value configured alongside the Callback URL in the App Dashboard.
+- The handler compares `hub.verify_token` against a single server-side secret, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. This value is chosen by us when configuring the webhook in the App Dashboard — it is not issued by Meta.
+
+## Request
+
+### Query parameters
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `hub.mode` | Yes | Always `subscribe` for a verification request. |
+| `hub.verify_token` | Yes | The secret configured in the App Dashboard. Compared against `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. |
+| `hub.challenge` | Yes | An opaque string Meta expects echoed back verbatim on success. |
+
+## Behavior
+
+1. Read `hub.mode`, `hub.verify_token`, `hub.challenge` from the query string.
+2. If `hub.mode === "subscribe"` and `hub.verify_token === WHATSAPP_WEBHOOK_VERIFY_TOKEN` → respond `200` with a `text/plain` body containing exactly the value of `hub.challenge`.
+3. Otherwise → respond `403 verification_failed` with no body.
+
+This endpoint performs no database reads or writes.
+
+## Response body
+
+`200 OK` — **plain text**, not JSON. The body is the raw `hub.challenge` value, e.g.:
+
+```
+1158201444
+```
+
+Meta requires the literal challenge string back with no wrapping (no quotes, no JSON envelope) — returning it as `{"hub.challenge": "..."}` or similar will fail verification.
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `403` | `verification_failed` | `hub.mode` is not `subscribe`, or `hub.verify_token` does not match `WHATSAPP_WEBHOOK_VERIFY_TOKEN`. |
+
+## Notes
+
+- This is a one-time (or rare) setup call, not part of the message flow. It exists purely so Meta can confirm we control the Callback URL before it starts sending real webhook deliveries to [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post).
+- Re-running verification (e.g. after rotating `WHATSAPP_WEBHOOK_VERIFY_TOKEN`) requires updating the value in both the App Dashboard and our server config, then re-saving the Callback URL in the Dashboard to trigger a fresh handshake.

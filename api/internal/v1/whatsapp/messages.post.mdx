@@ -1,0 +1,129 @@
+---
+title: "messages"
+api: "internal"
+endpoint: "/v1/whatsapp/messages"
+method: "post"
+client: "service"
+tag: "api"
+---
+
+# POST WhatsApp Messages
+
+Sends an outbound WhatsApp message — either a **template** message (to start a brand-new conversation with a contact who has never messaged us) or a **text** message (to reply within an already-open conversation). Backed by `whatsapp_conversations` / `whatsapp_messages` — see [`schema.sql`](/schema) §11. Both cases go through this one endpoint because Meta's own `POST /{Phone-Number-ID}/messages` call does too; the only thing that differs is `type` and the messaging-window rule described below.
+
+## Authentication
+
+- Requires a **static API key** sent in the `x-api-key` header, checked against `WHATSAPP_MESSAGES_API_KEY` — same mechanism as [`POST /v1/billing/checkout`](/internal/v1/billing/checkout). No Supabase JWT.
+- This is a `client: "service"` endpoint: it is intended to be called only by our own backend/agent worker (the process that decides *what* to say), never directly by an end-user app or the admin dashboard.
+- Missing or invalid `x-api-key` returns `401 unauthenticated`.
+
+## Request body
+
+**Starting a conversation** (template):
+
+```json
+{
+  "to": "16315551234",
+  "type": "template",
+  "template": {
+    "name": "appointment_reminder",
+    "language": { "code": "en_US" },
+    "components": [
+      {
+        "type": "body",
+        "parameters": [{ "type": "text", "text": "Thursday" }]
+      }
+    ]
+  }
+}
+```
+
+**Replying within an open conversation** (text):
+
+```json
+{
+  "to": "16315551234",
+  "type": "text",
+  "text": { "body": "Sure, I can help with that." },
+  "context": { "message_id": "wamid.ABGGFlCGg0cvAgo-sJQh43L5Pe4W" }
+}
+```
+
+### Fields
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `to` | `string` | Yes | Recipient's WhatsApp id (phone number, digits only, no `+`). Matches `whatsapp_conversations.wa_id`. |
+| `type` | `"text" \| "template"` | Yes | `template` to start a new conversation or send outside the 24h window; `text` to reply inside an open window. |
+| `text.body` | `string` | If `type = "text"` | Free-form message body. |
+| `template.name` | `string` | If `type = "template"` | Name of a pre-approved WhatsApp message template. |
+| `template.language.code` | `string` | If `type = "template"` | Template's language/locale code (e.g. `en_US`). |
+| `template.components` | `array` | No | Parameter substitutions for the template, in the same shape as Meta's `messages` API (see the WhatsApp Cloud API Postman collection, "Messages" → "Send Message Template Text"). |
+| `context.message_id` | `string` | No | `wamid` of a prior message to quote/reply to. Maps to `whatsapp_messages.context_wamid` on the created row. |
+
+## Behavior
+
+1. Validate the `type`-specific required fields — `400 missing_text` / `400 missing_template` if absent.
+2. Upsert `whatsapp_conversations` on `(business_phone_number_id, wa_id = to)`, where `business_phone_number_id` is our configured `WHATSAPP_PHONE_NUMBER_ID`. If no row exists yet, this call **creates** it — this is what "starting a conversation" means structurally.
+3. If `type = "text"`: reject with `409 outside_messaging_window` unless `whatsapp_conversations.last_inbound_at` is set and within the last 24 hours. This mirrors WhatsApp's platform-level customer service window — free-form text can only be sent in response to a contact's own recent message; templates exist specifically to bypass this restriction, so no window check applies when `type = "template"`.
+4. Call Meta's `POST https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}/messages` with `Authorization: Bearer {WHATSAPP_ACCESS_TOKEN}` and body `messaging_product: "whatsapp"`, `recipient_type: "individual"`, `to`, `type`, the type-specific object, and `context` if supplied. `WHATSAPP_ACCESS_TOKEN` is a System User access token (long-lived, ideally non-expiring) — this authenticates *us* to Meta and is unrelated to the `x-api-key` callers send *us* in step 0.
+5. On success (Meta returns `{ messages: [{ id }] }`):
+   - Insert a `whatsapp_messages` row: `direction = 'outbound'`, `wamid` = the returned id, `type`, `text_body` (if text), `context_wamid` (if supplied), `status = 'sent'`, `raw` = the request payload merged with Meta's response.
+   - Update `whatsapp_conversations.last_outbound_at = now()`.
+6. On Meta API rejection (e.g. template not approved, invalid recipient, rate limited): insert the `whatsapp_messages` row anyway with `wamid = null`, `status = 'failed'`, `error` = Meta's error body — so failed attempts are still auditable — and return `502 vendor_error`.
+
+## Response body
+
+`201 Created` — message accepted by Meta and persisted.
+
+```json
+{
+  "conversation_id": "b3fa...12",
+  "message": {
+    "id": "8e21...9c",
+    "wamid": "wamid.HBgLMTYzMTU1NTEyMzQVAgARGBI1QjM2QUZBRUFCNjZFNzE5RUYA",
+    "type": "text",
+    "status": "sent",
+    "created_at": "2026-07-02T18:04:11Z"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `conversation_id` | `uuid` | `whatsapp_conversations.id` — the thread this message belongs to. |
+| `message.id` | `uuid` | `whatsapp_messages.id`. |
+| `message.wamid` | `string` | Meta's message id. Delivery status updates (`sent` → `delivered` → `read`) arrive later via [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post) keyed on this value. |
+| `message.type` | `whatsapp_message_type` | Echoes the request's `type`. |
+| `message.status` | `whatsapp_message_status` | `"sent"` immediately after Meta accepts the call. Poll or subscribe to `whatsapp_messages` for later transitions. |
+| `message.created_at` | `timestamptz` | When the row was written. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid `x-api-key`. |
+| `400` | `invalid_recipient` | `to` is missing or not a valid phone number. |
+| `400` | `missing_text` | `type = "text"` but `text.body` is missing. |
+| `400` | `missing_template` | `type = "template"` but `template.name` or `template.language.code` is missing. |
+| `409` | `outside_messaging_window` | `type = "text"` and the contact has not messaged us in the last 24 hours. Send a `template` message instead. |
+| `502` | `vendor_error` | Meta rejected the send call. Body includes the vendor error code/message where safe to expose. The attempt is still persisted with `status = 'failed'`. |
+| `500` | `internal_error` | Unexpected failure persisting the message. |
+
+```json
+{
+  "error": {
+    "code": "outside_messaging_window",
+    "message": "Contact 16315551234 has not messaged in the last 24 hours. Use a template message to (re)start the conversation."
+  }
+}
+```
+
+## Notes
+
+- The 24-hour window check reads `whatsapp_conversations.last_inbound_at`, which is only ever set by [`POST /v1/whatsapp/webhook`](/internal/v1/whatsapp/webhook.post) processing an inbound message. There is no way to open the window from this endpoint — it can only be opened by the contact messaging us, or bypassed with a template.
+- This endpoint never reads or writes `agent_memories` or any other LLM-context table — deciding message content is entirely the caller's responsibility. This is purely the WhatsApp transport.
+- A single WhatsApp Business phone number is assumed for `WHATSAPP_PHONE_NUMBER_ID` today. `whatsapp_conversations.business_phone_number_id` is still stored per-row so a second number can be added later without a schema change — this endpoint would just need a way to select which number to send from.
+- `WHATSAPP_ACCESS_TOKEN` should be a **System User** access token, not a personal user token — personal tokens expire after 24 hours and would silently break every send once they lapse. See the full variable list on the [WhatsApp overview page](/internal/v1/whatsapp/index#environment-variables).
