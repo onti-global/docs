@@ -13,7 +13,7 @@ Creates a new course in `draft` status. The course is not visible to learners un
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 - The role claim is set by the `admin_dashboard_jwt_hook` at token issuance time.
 
@@ -36,8 +36,8 @@ Creates a new course in `draft` status. The course is not visible to learners un
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `title` | `string` | Yes | Course title. Must be non-empty. |
-| `description` | `string` | No | Optional marketing description. |
+| `title` | `string` | Yes | Course title. 1–200 characters. |
+| `description` | `string \| null` | No | Optional marketing description. Max 2000 characters. |
 
 ## Response body
 
@@ -46,7 +46,7 @@ Creates a new course in `draft` status. The course is not visible to learners un
 ```json
 {
   "status": 200,
-  "message": "Resource created",
+  "message": "Course created",
   "data": {
     "id": "3cc4...e9",
     "title": "Advanced Facilitation",
@@ -72,15 +72,15 @@ Creates a new course in `draft` status. The course is not visible to learners un
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
-| `400` | `invalid_body` | `title` is missing or empty. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `400` | `validation_error` | `title` is missing, empty, or longer than 200 characters; or `description` is longer than 2000 characters. |
 | `500` | `internal_error` | Unexpected database failure. |
 
 ```json
 {
   "status": 400,
-  "message": "Validation failed",
-  "error": "title is required and must be a non-empty string",
+  "message": "title is required and must be a non-empty string",
+  "error": "validation_error",
   "data": null
 }
 ```

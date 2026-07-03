@@ -1,0 +1,77 @@
+---
+title: "agents-list"
+api: "admin"
+endpoint: "/internal/v1/admin/agents"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET List Agents
+
+Returns all agents, ordered by `name` ascending. Used by the back-office as the picker source when assigning maestros to a course.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "id": "a7b1...c2",
+        "name": "Maestro Sofía",
+        "slug": "maestro-sofia",
+        "description": "Primary facilitation coach.",
+        "active": true
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Agent[]` | All agents, ordered by `name` ascending. |
+
+### Agent object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Agent id. |
+| `name` | `string` | Agent display name. |
+| `slug` | `string \| null` | Agent slug. |
+| `description` | `string \| null` | Agent description. |
+| `active` | `boolean` | Whether the agent is active. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 401,
+  "message": "Missing or invalid authorization token",
+  "error": "unauthenticated",
+  "data": null
+}
+```

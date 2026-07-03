@@ -1,0 +1,124 @@
+---
+title: "courses-detail"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Course Detail
+
+Returns a single course with its modules (ordered by `position`) and its assigned maestros. This is the endpoint the course editor loads on open.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "id": "3cc4...e9",
+    "title": "Advanced Facilitation",
+    "description": "A deep dive into group facilitation techniques.",
+    "status": "published",
+    "created_at": "2026-06-29T12:00:00Z",
+    "updated_at": "2026-06-29T13:00:00Z",
+    "modules": [
+      {
+        "id": "m1...ff",
+        "course_id": "3cc4...e9",
+        "title": "Module 1 — Foundations",
+        "description": null,
+        "position": 0,
+        "created_at": "2026-06-29T12:05:00Z",
+        "updated_at": "2026-06-29T12:05:00Z"
+      }
+    ],
+    "maestros": [
+      {
+        "agent_id": "a7b1...c2",
+        "role": "primary",
+        "position": 0,
+        "name": "Maestro Sofía",
+        "slug": "maestro-sofia",
+        "description": "Primary facilitation coach.",
+        "assigned_at": "2026-06-29T12:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Course id. |
+| `title` | `string` | Course title. |
+| `description` | `string \| null` | Course description. |
+| `status` | `"draft" \| "published" \| "archived"` | Lifecycle state. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+| `modules` | `Module[]` | Course modules, ordered by `position` ascending. |
+| `maestros` | `Maestro[]` | Maestros assigned to the course. |
+
+### Module object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Module id. |
+| `course_id` | `uuid` | Parent course id. |
+| `title` | `string` | Module title. |
+| `description` | `string \| null` | Module description. |
+| `position` | `integer` | Sort order within the course. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+### Maestro object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `agent_id` | `uuid` | Agent id. |
+| `role` | `"primary" \| "assistant"` | Maestro role within the course. |
+| `position` | `integer` | Sort order among the course's maestros. |
+| `name` | `string` | Agent display name. |
+| `slug` | `string \| null` | Agent slug. |
+| `description` | `string \| null` | Agent description. |
+| `assigned_at` | `timestamptz` | When the maestro was assigned to the course. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Course not found",
+  "error": "course_not_found",
+  "data": null
+}
+```

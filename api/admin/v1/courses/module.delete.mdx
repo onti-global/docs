@@ -1,0 +1,64 @@
+---
+title: "modules-delete"
+api: "admin"
+endpoint: "/internal/v1/admin/modules/:id"
+method: "delete"
+client: "admin"
+tag: "api"
+---
+
+# DELETE Module
+
+Permanently deletes a module. The delete **cascades**: all variants of the module and all content items under those variants are deleted as well.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The module id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "Module deleted",
+  "data": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `null` | No payload is returned on delete. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `module_not_found` | Module does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Module not found",
+  "error": "module_not_found",
+  "data": null
+}
+```

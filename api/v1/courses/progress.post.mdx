@@ -9,6 +9,8 @@ tag: "api"
 
 # POST Submit Progress
 
+<Warning>Planned — this endpoint is not implemented in the backend yet.</Warning>
+
 Records a learner's progress event for a content item. Use `started` when the learner opens an item and `completed` when they finish it. Submitting `started` for an item that is already started is a no-op. Submitting `completed` also sets `started = true` if not already set.
 
 ## Authentication

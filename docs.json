@@ -342,11 +342,31 @@
                     "group": "courses — course builder",
                     "pages": [
                       "api/admin/v1/courses/course.create.post",
+                      "api/admin/v1/courses/course.list.get",
+                      "api/admin/v1/courses/course.detail.get",
                       "api/admin/v1/courses/course.update.put",
+                      "api/admin/v1/courses/course.delete",
                       "api/admin/v1/courses/module.create.post",
+                      "api/admin/v1/courses/module.detail.get",
+                      "api/admin/v1/courses/module.update.put",
+                      "api/admin/v1/courses/module.reorder.put",
+                      "api/admin/v1/courses/module.delete",
+                      "api/admin/v1/courses/variant.list.get",
                       "api/admin/v1/courses/variant.create.post",
+                      "api/admin/v1/courses/variant.update.put",
+                      "api/admin/v1/courses/variant.delete",
+                      "api/admin/v1/courses/content.list.get",
                       "api/admin/v1/courses/content.create.post",
-                      "api/admin/v1/courses/content.update.put"
+                      "api/admin/v1/courses/content.update.put",
+                      "api/admin/v1/courses/content.delete"
+                    ]
+                  },
+                  {
+                    "group": "courses — maestros",
+                    "pages": [
+                      "api/admin/v1/courses/maestro.list.get",
+                      "api/admin/v1/courses/maestro.assign.post",
+                      "api/admin/v1/courses/maestro.remove.delete"
                     ]
                   },
                   {
@@ -355,6 +375,18 @@
                       "api/admin/v1/courses/enrollment.list.get",
                       "api/admin/v1/courses/enrollment.create.post",
                       "api/admin/v1/courses/enrollment.update.patch"
+                    ]
+                  },
+                  {
+                    "group": "agents",
+                    "pages": [
+                      "api/admin/v1/agents.list.get"
+                    ]
+                  },
+                  {
+                    "group": "users",
+                    "pages": [
+                      "api/admin/v1/users.search.get"
                     ]
                   },
                   {

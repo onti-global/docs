@@ -1,0 +1,65 @@
+---
+title: "maestros-remove"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/maestros/:agentId"
+method: "delete"
+client: "admin"
+tag: "api"
+---
+
+# DELETE Remove Maestro
+
+Removes a maestro assignment from a course. The agent itself is not affected — only the course link is deleted.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+| `agentId` | `uuid` | The agent id to remove from the course. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "Maestro removed",
+  "data": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `null` | No payload is returned on delete. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `maestro_not_assigned` | The agent is not assigned to the course. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Maestro is not assigned to this course",
+  "error": "maestro_not_assigned",
+  "data": null
+}
+```

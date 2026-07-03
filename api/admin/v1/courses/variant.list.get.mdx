@@ -1,15 +1,15 @@
 ---
-title: "variants-create"
+title: "variants-list"
 api: "admin"
 endpoint: "/internal/v1/admin/modules/:id/variants"
-method: "post"
+method: "get"
 client: "admin"
 tag: "api"
 ---
 
-# POST Create Variant
+# GET List Variants
 
-Adds a new variant to a module. Variants are the personalised paths through a module — a module must have at least one variant before content can be added. Multiple variants allow the system to assign different experiences to different learners.
+Returns the variants of a module.
 
 ## Authentication
 
@@ -21,7 +21,6 @@ Adds a new variant to a module. Variants are the personalised paths through a mo
 | Header | Value | Required |
 | --- | --- | --- |
 | `Authorization` | `Bearer <token>` | Yes |
-| `Content-Type` | `application/json` | Yes |
 | `Accept` | `application/json` | Yes |
 
 ## Path parameters
@@ -30,38 +29,34 @@ Adds a new variant to a module. Variants are the personalised paths through a mo
 | --- | --- | --- |
 | `id` | `uuid` | The parent module id. |
 
-## Request body
-
-```json
-{
-  "name": "High-Autonomy Path",
-  "description": "For learners with prior facilitation experience."
-}
-```
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `name` | `string` | Yes | Variant name. Used by admins to distinguish paths (not shown to learners). |
-| `description` | `string` | No | Optional internal description. |
-
 ## Response body
 
-`201 Created`
+`200 OK`
 
 ```json
 {
   "status": 200,
-  "message": "Variant created",
+  "message": "",
   "data": {
-    "id": "v3...ii",
-    "module_id": "m3...hh",
-    "name": "High-Autonomy Path",
-    "description": "For learners with prior facilitation experience.",
-    "created_at": "2026-06-29T12:15:00Z",
-    "updated_at": "2026-06-29T12:15:00Z"
+    "items": [
+      {
+        "id": "v3...ii",
+        "module_id": "m3...hh",
+        "name": "High-Autonomy Path",
+        "description": "For learners with prior facilitation experience.",
+        "created_at": "2026-06-29T12:15:00Z",
+        "updated_at": "2026-06-29T12:15:00Z"
+      }
+    ]
   }
 }
 ```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Variant[]` | Variants belonging to the module. |
+
+### Variant object
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -78,7 +73,6 @@ Adds a new variant to a module. Variants are the personalised paths through a mo
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
 | `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
-| `400` | `validation_error` | `name` is missing or empty. |
 | `404` | `module_not_found` | Module does not exist. |
 | `500` | `internal_error` | Unexpected database failure. |
 

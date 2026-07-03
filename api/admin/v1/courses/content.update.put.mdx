@@ -9,11 +9,11 @@ tag: "api"
 
 # PUT Update Content Item
 
-Updates a content item's title, URL, body, or position. All fields are optional — only provided fields are updated.
+Updates a content item's type, title, URL, body, or position. All fields are optional — only provided fields are updated.
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
@@ -42,6 +42,7 @@ Updates a content item's title, URL, body, or position. All fields are optional 
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
+| `type` | `"html" \| "video" \| "audio" \| "meditation" \| "quiz"` | No | New content type. |
 | `title` | `string` | No | New title. Must be non-empty if provided. |
 | `url` | `string \| null` | No | New media URL. Pass `null` to clear. |
 | `body` | `string \| null` | No | New HTML or quiz JSON. Pass `null` to clear. |
@@ -54,7 +55,7 @@ Updates a content item's title, URL, body, or position. All fields are optional 
 ```json
 {
   "status": 200,
-  "message": "",
+  "message": "Content updated",
   "data": {
     "id": "c3...jj",
     "variant_id": "v3...ii",
@@ -74,16 +75,16 @@ Updates a content item's title, URL, body, or position. All fields are optional 
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
-| `400` | `invalid_body` | A provided field value is invalid (e.g. empty title). |
-| `404` | `not_found` | Content item does not exist. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `400` | `validation_error` | A provided field value is invalid (e.g. empty title). |
+| `404` | `content_not_found` | Content item does not exist. |
 | `500` | `internal_error` | Unexpected database failure. |
 
 ```json
 {
   "status": 400,
-  "message": "Validation failed",
-  "error": "title must be a non-empty string",
+  "message": "title must be a non-empty string",
+  "error": "validation_error",
   "data": null
 }
 ```
