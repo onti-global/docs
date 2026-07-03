@@ -1,0 +1,98 @@
+---
+title: "modules-reorder"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/modules/order"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Reorder Modules
+
+Reorders all modules of a course in a single atomic operation. `module_ids` must contain **exactly** the ids of the course's modules — no more, no fewer — in the desired order. Positions are reassigned from the array order.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Request body
+
+```json
+{
+  "module_ids": ["m3...hh", "m1...ff", "m2...gg"]
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `module_ids` | `uuid[]` | Yes | The course's module ids in the desired order. Must contain exactly the set of modules belonging to the course. |
+
+## Response body
+
+`200 OK` — returns the reordered modules.
+
+```json
+{
+  "status": 200,
+  "message": "Modules reordered",
+  "data": [
+    {
+      "id": "m3...hh",
+      "course_id": "3cc4...e9",
+      "title": "Module 3 — Emotional Regulation",
+      "description": null,
+      "position": 0,
+      "created_at": "2026-06-29T12:10:00Z",
+      "updated_at": "2026-06-29T14:00:00Z"
+    },
+    {
+      "id": "m1...ff",
+      "course_id": "3cc4...e9",
+      "title": "Module 1 — Foundations",
+      "description": null,
+      "position": 1,
+      "created_at": "2026-06-29T12:05:00Z",
+      "updated_at": "2026-06-29T14:00:00Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `Module[]` | All modules of the course with their new positions, ordered by `position` ascending. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `400` | `validation_error` | `module_ids` is missing, empty, or contains non-UUID values. |
+| `400` | `invalid_reorder` | `module_ids` does not match the exact set of modules belonging to the course (missing, extra, or duplicate ids). |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 400,
+  "message": "module_ids must contain exactly the modules of the course",
+  "error": "invalid_reorder",
+  "data": null
+}
+```

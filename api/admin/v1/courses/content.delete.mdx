@@ -1,0 +1,64 @@
+---
+title: "contents-delete"
+api: "admin"
+endpoint: "/internal/v1/admin/contents/:id"
+method: "delete"
+client: "admin"
+tag: "api"
+---
+
+# DELETE Content Item
+
+Permanently deletes a content item.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The content item id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "Content deleted",
+  "data": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `null` | No payload is returned on delete. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `content_not_found` | Content item does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Content not found",
+  "error": "content_not_found",
+  "data": null
+}
+```

@@ -1,15 +1,15 @@
 ---
-title: "modules-create"
+title: "modules-update"
 api: "admin"
-endpoint: "/internal/v1/admin/courses/:id/modules"
-method: "post"
+endpoint: "/internal/v1/admin/modules/:id"
+method: "put"
 client: "admin"
 tag: "api"
 ---
 
-# POST Create Module
+# PUT Update Module
 
-Adds a new module to a course. Modules are the ordered chapters learners move through. `position` controls sort order within the course; the application is responsible for keeping positions contiguous.
+Updates a module's title, description, or position. All fields are optional — only provided fields are updated. To reorder several modules at once, prefer the [reorder endpoint](/api/admin/v1/courses/module.reorder.put).
 
 ## Authentication
 
@@ -28,40 +28,40 @@ Adds a new module to a course. Modules are the ordered chapters learners move th
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `id` | `uuid` | The parent course id. |
+| `id` | `uuid` | The module id. |
 
 ## Request body
 
 ```json
 {
-  "title": "Module 3 — Emotional Regulation",
-  "description": "Techniques for managing emotional state in coaching sessions.",
-  "position": 2
+  "title": "Module 3 — Emotional Regulation (Revised)",
+  "description": "Updated description.",
+  "position": 1
 }
 ```
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `title` | `string` | Yes | Module title. |
-| `description` | `string` | No | Optional module description. |
-| `position` | `integer` | No | Ascending sort order within the course. Defaults to the next available position in the course. |
+| `title` | `string` | No | New module title. Must be non-empty if provided. |
+| `description` | `string \| null` | No | New description. Pass `null` to clear it. |
+| `position` | `integer` | No | New sort order within the course. |
 
 ## Response body
 
-`201 Created`
+`200 OK` — returns the updated module.
 
 ```json
 {
   "status": 200,
-  "message": "Module created",
+  "message": "Module updated",
   "data": {
     "id": "m3...hh",
     "course_id": "3cc4...e9",
-    "title": "Module 3 — Emotional Regulation",
-    "description": "Techniques for managing emotional state in coaching sessions.",
-    "position": 2,
+    "title": "Module 3 — Emotional Regulation (Revised)",
+    "description": "Updated description.",
+    "position": 1,
     "created_at": "2026-06-29T12:10:00Z",
-    "updated_at": "2026-06-29T12:10:00Z"
+    "updated_at": "2026-06-29T13:00:00Z"
   }
 }
 ```
@@ -82,14 +82,14 @@ Adds a new module to a course. Modules are the ordered chapters learners move th
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
 | `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
-| `400` | `validation_error` | `title` is missing or `position` is not a non-negative integer. |
-| `404` | `course_not_found` | Course does not exist. |
+| `400` | `validation_error` | A provided field value is invalid (e.g. empty title, negative position). |
+| `404` | `module_not_found` | Module does not exist. |
 | `500` | `internal_error` | Unexpected database failure. |
 
 ```json
 {
   "status": 400,
-  "message": "title is required and must be a non-empty string",
+  "message": "title must be a non-empty string",
   "error": "validation_error",
   "data": null
 }

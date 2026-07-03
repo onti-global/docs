@@ -1,0 +1,88 @@
+---
+title: "maestros-list"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/maestros"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Course Maestros
+
+Returns the maestros (agents) assigned to a course, hydrated with agent identity for display.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "items": [
+      {
+        "agent_id": "a7b1...c2",
+        "role": "primary",
+        "position": 0,
+        "name": "Maestro Sofía",
+        "slug": "maestro-sofia",
+        "description": "Primary facilitation coach.",
+        "assigned_at": "2026-06-29T12:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Maestro[]` | Maestros assigned to the course. |
+
+### Maestro object
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `agent_id` | `uuid` | Agent id. |
+| `role` | `"primary" \| "assistant"` | Maestro role within the course. |
+| `position` | `integer` | Sort order among the course's maestros. |
+| `name` | `string` | Agent display name. |
+| `slug` | `string \| null` | Agent slug. |
+| `description` | `string \| null` | Agent description. |
+| `assigned_at` | `timestamptz` | When the maestro was assigned to the course. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `course_not_found` | Course does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Course not found",
+  "error": "course_not_found",
+  "data": null
+}
+```

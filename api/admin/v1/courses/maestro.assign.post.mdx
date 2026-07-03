@@ -1,0 +1,95 @@
+---
+title: "maestros-assign"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id/maestros"
+method: "post"
+client: "admin"
+tag: "api"
+---
+
+# POST Assign Maestro
+
+Assigns an agent as a maestro of a course. The operation is an **upsert**: assigning an agent that is already linked to the course updates its `role` and `position` instead of creating a duplicate.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Request body
+
+```json
+{
+  "agent_id": "a7b1...c2",
+  "role": "primary",
+  "position": 0
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `agent_id` | `uuid` | Yes | The agent to assign. Must exist. |
+| `role` | `"primary" \| "assistant"` | No | Maestro role within the course. Defaults to `"primary"`. |
+| `position` | `integer` | No | Sort order among the course's maestros. |
+
+## Response body
+
+`201 Created`
+
+```json
+{
+  "status": 200,
+  "message": "Maestro assigned",
+  "data": {
+    "course_id": "3cc4...e9",
+    "agent_id": "a7b1...c2",
+    "role": "primary",
+    "position": 0,
+    "created_at": "2026-06-29T12:30:00Z",
+    "updated_at": "2026-06-29T12:30:00Z"
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | Course id. |
+| `agent_id` | `uuid` | Agent id. |
+| `role` | `"primary" \| "assistant"` | Maestro role within the course. |
+| `position` | `integer` | Sort order among the course's maestros. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `400` | `validation_error` | `agent_id` is missing or not a valid UUID; `role` is not a valid enum value. |
+| `404` | `course_not_found` | Course does not exist. |
+| `404` | `agent_not_found` | Agent does not exist. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Agent not found",
+  "error": "agent_not_found",
+  "data": null
+}
+```

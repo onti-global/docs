@@ -9,11 +9,13 @@ tag: "api"
 
 # POST Create Assignment Rule
 
+<Warning>Planned — this endpoint is not implemented in the backend yet.</Warning>
+
 Adds a rule to a variant assignment policy. Rules are evaluated in ascending `priority` order; the first rule whose conditions pass assigns the learner to `target_variant_id`. If no rule matches, the policy's `default_variant_id` is used.
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
@@ -97,7 +99,7 @@ Adds a rule to a variant assignment policy. Rules are evaluated in ascending `pr
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
 | `400` | `invalid_body` | `name`, `target_variant_id`, or `conditions` is missing; operator is unrecognised; `expected` shape doesn't match operator. |
 | `404` | `policy_not_found` | Variant assignment policy does not exist. |
 | `404` | `variant_not_found` | Target variant does not exist. |

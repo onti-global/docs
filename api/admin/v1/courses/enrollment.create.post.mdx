@@ -9,11 +9,11 @@ tag: "api"
 
 # POST Create Enrollment (Admin)
 
-Manually enrolls a user in a course, bypassing entitlement checks. Used for admin-provisioned access (comps, gifted access, bulk onboarding). Duplicate attempts return the existing enrollment unchanged.
+Manually enrolls a user in a course, bypassing entitlement checks. Used for admin-provisioned access (comps, gifted access, bulk onboarding). The operation is an idempotent upsert — enrolling an already-enrolled user returns the existing enrollment.
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
@@ -40,12 +40,12 @@ Manually enrolls a user in a course, bypassing entitlement checks. Used for admi
 
 ## Response body
 
-`201 Created` — new enrollment. `200 OK` — user was already enrolled.
+`201 Created`
 
 ```json
 {
   "status": 200,
-  "message": "Resource created",
+  "message": "Enrollment created",
   "data": {
     "id": "e9f0...12",
     "user_id": "9c0a...77",
@@ -54,20 +54,34 @@ Manually enrolls a user in a course, bypassing entitlement checks. Used for admi
     "enrolled_at": "2026-06-29T10:00:00Z",
     "completed_at": null,
     "created_at": "2026-06-29T10:00:00Z",
-    "updated_at": "2026-06-29T10:00:00Z"
+    "updated_at": "2026-06-29T10:00:00Z",
+    "user": {
+      "email": "ana@example.com",
+      "display_name": "Ana García"
+    }
   }
 }
 ```
 
-For the idempotent `200 OK` case, `message` is `""` — everything else in the envelope is unchanged.
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | Enrollment id. |
+| `user_id` | `uuid` | Enrolled user id. |
+| `course_id` | `uuid` | Course id. |
+| `status` | `"active" \| "completed" \| "dropped"` | Enrollment lifecycle state. |
+| `enrolled_at` | `timestamptz` | When the user was enrolled. |
+| `completed_at` | `timestamptz \| null` | When completion was recorded. |
+| `created_at` | `timestamptz` | Row creation timestamp. |
+| `updated_at` | `timestamptz` | Row last-modified timestamp. |
+| `user` | `object` | Basic user identity: `{ email: string \| null, display_name: string \| null }`. |
 
 ## Errors
 
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
-| `400` | `invalid_body` | `user_id` or `course_id` is missing or not a valid UUID. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `400` | `validation_error` | `user_id` or `course_id` is missing or not a valid UUID. |
 | `404` | `user_not_found` | No user with that id exists. |
 | `404` | `course_not_found` | Course does not exist. |
 | `500` | `internal_error` | Unexpected database failure. |
@@ -75,8 +89,8 @@ For the idempotent `200 OK` case, `message` is `""` — everything else in the e
 ```json
 {
   "status": 404,
-  "message": "Not found",
-  "error": "no user found with the provided user_id",
+  "message": "No user found with the provided user_id",
+  "error": "user_not_found",
   "data": null
 }
 ```

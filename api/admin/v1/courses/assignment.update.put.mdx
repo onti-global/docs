@@ -9,11 +9,13 @@ tag: "api"
 
 # PUT Override Variant Assignment
 
+<Warning>Planned — this endpoint is not implemented in the backend yet.</Warning>
+
 Manually overrides a learner's variant assignment for a module. Use this to correct an incorrect automatic assignment or to grant a learner access to a specific variant regardless of their assessment answers.
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
@@ -67,7 +69,7 @@ Manually overrides a learner's variant assignment for a module. Use this to corr
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
 | `400` | `invalid_body` | `variant_id` is missing or the target variant does not belong to the assignment's module. |
 | `404` | `not_found` | Assignment does not exist. |
 | `500` | `internal_error` | Unexpected database failure. |

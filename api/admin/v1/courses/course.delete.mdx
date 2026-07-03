@@ -1,0 +1,65 @@
+---
+title: "courses-delete"
+api: "admin"
+endpoint: "/internal/v1/admin/courses/:id"
+method: "delete"
+client: "admin"
+tag: "api"
+---
+
+# DELETE Course
+
+Permanently deletes a course. Only courses in `draft` status **without any enrollments** can be deleted. For published or archived courses, or courses with enrollments, the request is rejected with `409` — archive the course instead via the update endpoint.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id. |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "Course deleted",
+  "data": null
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `data` | `null` | No payload is returned on delete. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
+| `404` | `course_not_found` | Course does not exist. |
+| `409` | `course_not_deletable` | Course is not in `draft` status or has enrollments. The message suggests archiving instead. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 409,
+  "message": "Only draft courses without enrollments can be deleted. Archive the course instead.",
+  "error": "course_not_deletable",
+  "data": null
+}
+```

@@ -9,11 +9,13 @@ tag: "api"
 
 # PUT Update Assignment Rule
 
+<Warning>Planned — this endpoint is not implemented in the backend yet.</Warning>
+
 Updates an existing assignment rule. All fields are optional — only provided fields are updated.
 
 ## Authentication
 
-- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT.
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` or `"analyst"` in the JWT.
 - Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
 
 ## Headers
@@ -97,7 +99,7 @@ Updates an existing assignment rule. All fields are optional — only provided f
 | Status | Code | When |
 | --- | --- | --- |
 | `401` | `unauthenticated` | Missing or invalid JWT. |
-| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"`. |
+| `403` | `forbidden` | JWT does not carry an allowed `admin_dashboard_role` (`admin` or `analyst`). |
 | `400` | `invalid_body` | A provided field value is invalid. |
 | `404` | `not_found` | Policy or rule does not exist, or rule does not belong to the policy. |
 | `500` | `internal_error` | Unexpected database failure. |
