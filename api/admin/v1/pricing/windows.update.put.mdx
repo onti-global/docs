@@ -1,0 +1,132 @@
+---
+title: "pricing-windows-update"
+api: "admin"
+endpoint: "/internal/v1/admin/pricing/:id/windows"
+method: "put"
+client: "admin"
+tag: "api"
+---
+
+# PUT Update Course Pricing Windows (Admin)
+
+Replaces a course's entire pricing schedule — every `course_price_windows` row (see [`schema.sql`](/schema) §13) for this course, across every currency in the request — in one atomic call. This is a **full replace**, not a per-row `PATCH`: the request body carries the complete desired schedule, and the handler reconciles the table to match it exactly (deletes rows that are no longer present, updates rows that changed, inserts new ones).
+
+A full replace is deliberate: a schedule's positions only make sense as a coherent set (position `1..N` per currency must be contiguous, chronologically ordered, and non-overlapping — see schema §13). Allowing incremental single-window edits would let the schedule pass through invalid intermediate states (e.g. two windows at position `2`, or a gap at position `2` after deleting it). Validating the whole submitted shape once, then swapping it in, avoids that entirely.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT. `analyst` cannot call this endpoint — see `api/admin/v1/pricing/windows.list.get` for the read-only equivalent.
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id (`courses.id`). |
+
+## Request body
+
+```json
+{
+  "windows": [
+    { "position": 1, "currency": "USD", "starts_at": "2026-07-01T00:00:00Z", "ends_at": "2026-07-15T23:59:59Z", "unit_amount": 79900 },
+    { "position": 2, "currency": "USD", "starts_at": "2026-07-15T23:59:59Z", "ends_at": "2026-07-30T23:59:59Z", "unit_amount": 99900 },
+    { "position": 3, "currency": "USD", "starts_at": "2026-07-30T23:59:59Z", "ends_at": null, "unit_amount": 129900 },
+    { "position": 1, "currency": "MXN", "starts_at": "2026-07-01T00:00:00Z", "ends_at": "2026-07-15T23:59:59Z", "unit_amount": 149900 },
+    { "position": 2, "currency": "MXN", "starts_at": "2026-07-15T23:59:59Z", "ends_at": "2026-07-30T23:59:59Z", "unit_amount": 179900 },
+    { "position": 3, "currency": "MXN", "starts_at": "2026-07-30T23:59:59Z", "ends_at": null, "unit_amount": 199900 }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `windows` | `array` | Yes | The complete desired schedule for this course. Must contain at least one entry. Any currency/position combination not present here is **deleted** from `course_price_windows` for this course. |
+| `windows[].position` | `integer` | Yes | 1-based ordinal. Must be `> 0`. |
+| `windows[].currency` | `string` | Yes | ISO 4217 code. Only `"USD"` and `"MXN"` are accepted today. |
+| `windows[].starts_at` | `timestamptz` | Yes | Inclusive start of the window. |
+| `windows[].ends_at` | `timestamptz \| null` | Yes | Exclusive end of the window. Must be `null` on (and only on) the highest `position` within its `currency` group — see validation rules below. |
+| `windows[].unit_amount` | `integer` | Yes | Price in the smallest currency unit (cents). Must be `>= 0`. |
+
+## Behavior
+
+1. Auth checks (JWT, `admin_dashboard_role = "admin"`).
+2. Confirm `id` resolves to an existing row in `courses`. Reject with `404 course_not_found` otherwise.
+3. Validate the request shape: `windows` must be a non-empty array. Reject with `400 empty_schedule` otherwise. Each entry's field types/ranges are checked next; the first invalid entry is reported with its index — reject with `400 invalid_window`.
+4. Group the submitted entries by `currency`. For **each** currency group independently:
+   - Positions must form an exact `1..N` contiguous run with no duplicates and no gaps. Reject with `400 non_contiguous_positions` otherwise.
+   - Sorting the group by `position` must produce the same order as sorting it by `starts_at` — i.e. price must strictly increase as time moves forward. Reject with `400 windows_out_of_order` otherwise.
+   - Consecutive windows (by position) must not overlap: for every window except the last, `ends_at` must be non-null and `<= ` the next window's `starts_at`. Reject with `400 overlapping_windows` otherwise.
+   - `ends_at` must be `null` on the highest-position window and non-null on every other window in the group. Reject with `400 open_ended_window_not_last` otherwise.
+5. If every group passes, apply the change in a single transaction:
+   - Delete every existing `course_price_windows` row for `course_id` that has no matching `(position, currency)` in the request.
+   - Upsert every submitted entry on `(course_id, position, currency)` — update `starts_at` / `ends_at` / `unit_amount` if the row exists, insert it otherwise.
+6. Return the full resulting schedule, sorted by `currency` then `position` — same shape as `GET /admin/v1/pricing/:id/windows`.
+
+## Response body
+
+`200 OK` — returns the full, post-write schedule.
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "windows": [
+      {
+        "id": "e4a1...02",
+        "position": 1,
+        "starts_at": "2026-07-01T00:00:00Z",
+        "ends_at": "2026-07-15T23:59:59Z",
+        "currency": "USD",
+        "unit_amount": 79900,
+        "created_at": "2026-06-01T09:00:00Z",
+        "updated_at": "2026-07-06T14:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+Field shapes match `GET /admin/v1/pricing/:id/windows` (see `api/admin/v1/pricing/windows.list.get`).
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"` (includes a valid `analyst` token). |
+| `400` | `invalid_body` | `windows` is missing or not an array. |
+| `400` | `empty_schedule` | `windows` is an empty array. |
+| `400` | `invalid_window` | An entry is missing a required field, or a field has the wrong type / an out-of-range value (e.g. negative `unit_amount`, `position <= 0`, unrecognized `currency`). |
+| `400` | `non_contiguous_positions` | A currency group's positions aren't exactly `1..N` with no gaps or duplicates. |
+| `400` | `windows_out_of_order` | A currency group's position order doesn't match its chronological (`starts_at`) order. |
+| `400` | `overlapping_windows` | Two windows in the same currency group overlap, or a non-final window has `ends_at = null`. |
+| `400` | `open_ended_window_not_last` | The highest-position window in a currency group has a non-null `ends_at`, or a non-highest window has `ends_at = null`. |
+| `404` | `course_not_found` | `id` does not resolve to any row in `courses`. |
+| `500` | `internal_error` | Unexpected database failure. The transaction is rolled back; no partial schedule is ever persisted. |
+
+```json
+{
+  "status": 400,
+  "message": "Validation failed",
+  "error": "currency 'USD': positions must be a contiguous 1..N run with no gaps or duplicates, got [1, 1, 3]",
+  "data": null
+}
+```
+
+## Notes
+
+- Omitting a currency entirely from `windows` deletes that currency's whole schedule for the course — the same course can end up priced in `USD` only, `MXN` only, both, or (if `windows` is emptied and re-submitted incorrectly) rejected outright by `empty_schedule` before anything is deleted. There is currently no way to clear a course's schedule to zero windows through this endpoint; that's an intentional guardrail since a course with no pricing rows makes `GET /admin/v1/pricing/:id` unusable for buyers.
+- The request is addressed by `(position, currency)`, not by `course_price_windows.id` — the admin UI doesn't need to know row ids to reorder or retime a schedule; it just resubmits the full desired shape.
+- `discount_percent` is never part of this contract, in either direction — it's a derived, request-time field on the public read endpoint (`api/admin/v1/pricing/course.id.get`) and is never stored or accepted here.
+- To retime the standard "3 windows" shape from the product spec (lowest until a date, mid until a later date, highest after), submit all 3 positions per currency even if only one date or price actually changed — this endpoint always replaces the full set for the currencies you send.

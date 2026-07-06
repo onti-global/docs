@@ -1,10 +1,10 @@
 {
   "info": {
-    "_postman_id": "5c8f44f8-74ae-424d-a70e-960bb2327a17",
+    "_postman_id": "74c8e118-4ef7-45a0-8075-ab1f6b9c4ea0",
     "name": "API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "55929624",
-    "_collection_link": "https://go.postman.co/collection/55929624-5c8f44f8-74ae-424d-a70e-960bb2327a17?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/55929624-74c8e118-4ef7-45a0-8075-ab1f6b9c4ea0?source=collection_link"
   },
   "item": [
     {
@@ -638,6 +638,124 @@
               ]
             },
             {
+              "name": "whatsapp",
+              "item": [
+                {
+                  "name": "Webhook Verification",
+                  "request": {
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "{{host}}/internal/v1/whatsapp/webhook?hub.mode=subscribe&hub.verify_token={{WHATSAPP_WEBHOOK_VERIFY_TOKEN}}&hub.challenge=1158201444",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "whatsapp",
+                        "webhook"
+                      ],
+                      "query": [
+                        {
+                          "key": "hub.mode",
+                          "value": "subscribe"
+                        },
+                        {
+                          "key": "hub.verify_token",
+                          "value": "{{WHATSAPP_WEBHOOK_VERIFY_TOKEN}}"
+                        },
+                        {
+                          "key": "hub.challenge",
+                          "value": "1158201444"
+                        }
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Webhook",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "X-Hub-Signature-256",
+                        "value": "sha256=",
+                        "description": "HMAC computed by Meta over the raw body using WHATSAPP_APP_SECRET."
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n  \"object\": \"whatsapp_business_account\",\n  \"entry\": [\n    {\n      \"id\": \"8856996819413533\",\n      \"changes\": [\n        {\n          \"field\": \"messages\",\n          \"value\": {\n            \"messaging_product\": \"whatsapp\",\n            \"metadata\": {\n              \"display_phone_number\": \"16505553333\",\n              \"phone_number_id\": \"27681414235104944\"\n            },\n            \"contacts\": [\n              { \"profile\": { \"name\": \"Kerry Fisher\" }, \"wa_id\": \"16315551234\" }\n            ],\n            \"messages\": [\n              {\n                \"from\": \"16315551234\",\n                \"id\": \"wamid.ABGGFlCGg0cvAgo-sJQh43L5Pe4W\",\n                \"timestamp\": \"1603059201\",\n                \"type\": \"text\",\n                \"text\": { \"body\": \"Hello this is an answer\" }\n              }\n            ]\n          }\n        }\n      ]\n    }\n  ]\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/internal/v1/whatsapp/webhook",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "whatsapp",
+                        "webhook"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Send Message",
+                  "request": {
+                    "auth": {
+                      "type": "apikey",
+                      "apikey": [
+                        {
+                          "key": "value",
+                          "value": "{{WHATSAPP_MESSAGES_API_KEY}}",
+                          "type": "string"
+                        },
+                        {
+                          "key": "key",
+                          "value": "x-api-key",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \"to\": \"16315551234\",\n    \"type\": \"text\",\n    \"text\": {\n        \"body\": \"Sure, I can help with that.\"\n    },\n    \"context\": {\n        \"message_id\": \"wamid.ABGGFlCGg0cvAgo-sJQh43L5Pe4W\"\n    }\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{host}}/internal/v1/whatsapp/messages",
+                      "host": [
+                        "{{host}}"
+                      ],
+                      "path": [
+                        "internal",
+                        "v1",
+                        "whatsapp",
+                        "messages"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
               "name": "admin",
               "item": [
                 {
@@ -674,35 +792,6 @@
                     }
                   },
                   "response": []
-                },
-                {
-                  "name": "Login",
-                  "request": {
-                    "method": "POST",
-                    "header": [],
-                    "body": {
-                      "mode": "raw",
-                      "raw": "{\n    \"email\": \"{{ADMIN_EMAIL}}\",\n    \"password\": \"{{ADMIN_PASSWORD}}\"\n}",
-                      "options": {
-                        "raw": {
-                          "language": "json"
-                        }
-                      }
-                    },
-                    "url": {
-                      "raw": "{{host}}/internal/v1/admin/login",
-                      "host": [
-                        "{{host}}"
-                      ],
-                      "path": [
-                        "internal",
-                        "v1",
-                        "admin",
-                        "login"
-                      ]
-                    }
-                  },
-                  "response": []
                 }
               ],
               "event": [
@@ -713,14 +802,13 @@
                     "packages": {},
                     "requests": {},
                     "exec": [
-                      "const supabaseUrl = pm.environment.get(\"SUPABASE_URL\");",
-                      "const anonKey = pm.environment.get(\"SUPABASE_ANON_KEY\");",
+                      "const host = pm.environment.get(\"HOST\");",
                       "const email = pm.environment.get(\"ADMIN_EMAIL\");",
                       "const password = pm.environment.get(\"ADMIN_PASSWORD\");",
                       "",
-                      "if (!supabaseUrl || !anonKey || !email || !password) {",
+                      "if (!email || !password) {",
                       "  throw new Error(",
-                      "    \"Missing env vars. Required: SUPABASE_URL, SUPABASE_ANON_KEY, AUTH_EMAIL, AUTH_PASSWORD\"",
+                      "    \"Missing env vars. Required: ADMIN_EMAIL, ADMIN_PASSWORD\"",
                       "  );",
                       "}",
                       "",
@@ -738,10 +826,9 @@
                       "} else {",
                       "  pm.sendRequest(",
                       "    {",
-                      "      url: `${supabaseUrl}/auth/v1/token?grant_type=password`,",
+                      "      url: `${host}/internal/v1/admin/login`,",
                       "      method: \"POST\",",
                       "      header: {",
-                      "        apikey: anonKey,",
                       "        \"Content-Type\": \"application/json\",",
                       "      },",
                       "      body: {",

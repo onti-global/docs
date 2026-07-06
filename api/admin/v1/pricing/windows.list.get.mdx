@@ -1,0 +1,122 @@
+---
+title: "pricing-windows-list"
+api: "admin"
+endpoint: "/internal/v1/admin/pricing/:id/windows"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Course Pricing Windows (Admin)
+
+Returns the raw, unresolved pricing schedule for a course — every `course_price_windows` row (see [`schema.sql`](/schema) §13), across every currency, with no locale resolution and no discount computation. This is the read side of the back-office pricing editor: it feeds the schedule table the admin edits, whereas `GET /admin/v1/pricing/:id` (see `api/admin/v1/pricing/course.id.get`) is the public, locale-resolved "what does this course cost right now" lookup used by storefronts.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role` in the JWT (`"admin"` or `"analyst"`).
+- Uses the Supabase **admin** client (service-role key); requests bypass RLS entirely.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id (`courses.id`). |
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "windows": [
+      {
+        "id": "e4a1...02",
+        "position": 1,
+        "starts_at": "2026-07-01T00:00:00Z",
+        "ends_at": "2026-07-15T23:59:59Z",
+        "currency": "USD",
+        "unit_amount": 79900,
+        "created_at": "2026-06-01T09:00:00Z",
+        "updated_at": "2026-06-01T09:00:00Z"
+      },
+      {
+        "id": "b7c2...5f",
+        "position": 2,
+        "starts_at": "2026-07-15T23:59:59Z",
+        "ends_at": "2026-07-30T23:59:59Z",
+        "currency": "USD",
+        "unit_amount": 99900,
+        "created_at": "2026-06-01T09:00:00Z",
+        "updated_at": "2026-06-01T09:00:00Z"
+      },
+      {
+        "id": "9d0e...8a",
+        "position": 3,
+        "starts_at": "2026-07-30T23:59:59Z",
+        "ends_at": null,
+        "currency": "USD",
+        "unit_amount": 129900,
+        "created_at": "2026-06-01T09:00:00Z",
+        "updated_at": "2026-06-01T09:00:00Z"
+      },
+      {
+        "id": "2f1a...c3",
+        "position": 1,
+        "starts_at": "2026-07-01T00:00:00Z",
+        "ends_at": "2026-07-15T23:59:59Z",
+        "currency": "MXN",
+        "unit_amount": 149900,
+        "created_at": "2026-06-01T09:00:00Z",
+        "updated_at": "2026-06-01T09:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | Echoes the path param. |
+| `windows` | `array` | Every `course_price_windows` row for this course, across all currencies. Sorted by `currency`, then `position` ascending. Empty array if no schedule has been authored yet — **not** a `404`. |
+| `windows[].id` | `uuid` | `course_price_windows.id`. Pass this back on `PUT` if the write endpoint ever needs to target a single row; the current write contract (see `api/admin/v1/pricing/windows.update.put`) replaces by `(position, currency)`, not by `id`. |
+| `windows[].position` | `integer` | 1-based ordinal within `(course_id, currency)`. Lower = earlier + cheaper. |
+| `windows[].starts_at` | `timestamptz` | Inclusive start of the window. |
+| `windows[].ends_at` | `timestamptz \| null` | Exclusive end of the window. `null` means open-ended. |
+| `windows[].currency` | `string` | ISO 4217 code (`"USD"` or `"MXN"` today). |
+| `windows[].unit_amount` | `integer` | Price in the smallest currency unit (cents). |
+| `windows[].created_at` | `timestamptz` | Row creation timestamp. |
+| `windows[].updated_at` | `timestamptz` | Row last-modified timestamp. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role`. |
+| `404` | `course_not_found` | `id` does not resolve to any row in `courses`. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Not found",
+  "error": "course '1aa2...d4' does not exist",
+  "data": null
+}
+```
+
+## Notes
+
+- An empty `windows` array is a valid, common response for a newly-created course — it means pricing simply hasn't been configured yet. The public lookup (`api/admin/v1/pricing/course.id.get`) turns that same state into `404 pricing_not_configured` for the currency it resolved to; this admin endpoint never 404s on "no schedule", only on "no course".
+- `analyst` can read this endpoint (matches the read/write split used everywhere else in the admin API — see `api/admin/v1/kpis-get-md` and `api/admin/v1/courses/enrollment.list.get`); only `admin` can write via `PUT` (see `api/admin/v1/pricing/windows.update.put`).
