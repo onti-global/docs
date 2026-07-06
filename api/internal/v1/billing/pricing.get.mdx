@@ -1,17 +1,17 @@
 ---
 title: "pricing-get"
-api: "admin"
-endpoint: "/internal/v1/admin/pricing/:id"
+api: "internal"
+endpoint: "/v1/billing/pricing/:id"
 method: "get"
-client: "admin"
+client: "apps"
 tag: "api"
 ---
 
 # GET Course Pricing
 
-Returns the locale-resolved price for a single course, plus its full pricing schedule. Backed by `course_price_windows` — see [`schema.sql`](/schema) §13 — a date-ranged schedule an admin authors per course: each window is a `(position, currency)` pair with its own `[starts_at, ends_at)` range and price, ordered so lower positions start earlier and cost less. The endpoint resolves "today's price" by finding whichever window contains the request time, and reports the early-bird discount relative to the schedule's highest-priced window.
+Returns the locale-resolved price for a single course, plus its full pricing schedule. Backed by `course_price_windows` — see [`schema.sql`](/schema) §13 — a date-ranged schedule an admin authors per course: each window has its own `[starts_at, ends_at)` range and points at (`billing_price_id`) the `billing_prices` row it charges, which is where `currency` and `unit_amount` actually live — ordered so lower positions start earlier and cost less. The endpoint resolves "today's price" by finding whichever window contains the request time, and reports the early-bird discount relative to the schedule's highest-priced window.
 
-This is a read-only pricing lookup, not a checkout call — it exists so storefronts, landing pages, and partner integrations can render "this course costs X today, Y after <date>" without a Supabase session. Checkout itself still goes through `/v1/billing/checkout` (see `api/internal/v1/billing/checkout`) using `billing_prices`, which is reconciled against this schedule by whoever authors both.
+This is a read-only pricing lookup, not a checkout call — it exists so storefronts, landing pages, and partner integrations can render "this course costs X today, Y after <date>" without a Supabase session. Checkout itself still goes through `/v1/billing/checkout` (see `api/internal/v1/billing/checkout`) using `billing_prices` directly — the same rows this schedule's windows point at via `billing_price_id`, so there is exactly one number for "what does this cost," never two that can drift.
 
 ## Authentication
 
@@ -46,7 +46,7 @@ This is a read-only pricing lookup, not a checkout call — it exists so storefr
 2. Validate `id` is a UUID and resolves to an existing row in `courses`. Reject with `404 course_not_found` otherwise (draft/archived courses are still resolvable here — pricing lookups are not gated by `course_status`, since admins may price a course before publishing it).
 3. Resolve `currency`: uppercase `country`; `"MX"` -> `"MXN"`, anything else (including an omitted `country`) -> `"USD"`.
 4. Resolve `as_of`: parse the query param, or `now()` if omitted. Reject with `400 invalid_as_of` if present but not a valid ISO-8601 timestamp.
-5. Load every `course_price_windows` row for `(course_id, currency)`, ordered by `position` ascending.
+5. Load every `course_price_windows` row for `course_id`, joined to `billing_prices` on `billing_price_id`, filtered to `billing_prices.currency = <resolved currency>`, ordered by `position` ascending.
    - If there are zero rows for that currency, reject with `404 pricing_not_configured` — the course exists but an admin hasn't authored a schedule in this currency yet.
 6. Determine the **active** window: the row with the greatest `position` whose `starts_at <= as_of` and (`ends_at is null` or `ends_at > as_of`). If `as_of` is earlier than every window's `starts_at` (the schedule hasn't started yet), fall back to the lowest-`position` row so the endpoint always returns a price rather than a hole.
 7. Determine the **reference** price: the row with the greatest `position` in the loaded set (the schedule's highest, typically open-ended, price). This is the denominator for every `discount_percent` below — not necessarily the active window's own price.

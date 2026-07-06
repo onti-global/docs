@@ -17,7 +17,7 @@ Stripe (and every major vendor) treats a Price object's amount as **immutable** 
 
 1. Archive the course's current active `billing_prices` row for this currency **and** deactivate the matching Stripe Price object.
 2. Create a new Stripe Price object at the new `unit_amount`, and insert the corresponding new `billing_prices` row (`status = "active"`).
-3. Update `course_price_windows.unit_amount` for the targeted window so the schedule (and the public pricing lookup) matches what's now actually charged.
+3. Repoint the targeted `course_price_windows` row's `billing_price_id` at the new `billing_prices` row, so the schedule (and the public pricing lookup) matches what's now actually charged. `course_price_windows` never stores `unit_amount` itself — see [`schema.sql`](/schema) §13 — so this is the only write this endpoint needs to make to the schedule.
 
 All three steps happen in one request. If step 1/2 (the vendor calls) succeed but step 3 fails to persist, the response still reports the new `vendor_price_id` so the failure is recoverable — see Errors.
 
@@ -62,15 +62,15 @@ Only `unit_amount` can change through this endpoint. To move a window's dates, u
 1. Auth checks (JWT, `admin_dashboard_role = "admin"`).
 2. Confirm `id` resolves to an existing row in `courses`. Reject with `404 course_not_found` otherwise.
 3. Validate `position` is a positive integer and the body's `currency` / `unit_amount` are well-formed. Reject with `400 invalid_body` otherwise.
-4. Load the `course_price_windows` row for `(course_id, position, currency)`. Reject with `404 window_not_found` if it doesn't exist — this endpoint only changes an existing window's price, it does not create windows (use `PUT .../windows` to author the schedule first).
-5. Reject with `400 no_change` if `unit_amount` equals the window's current value — nothing to sync.
+4. Load the `course_price_windows` row for `(course_id, position)`, joined to `billing_prices` on `billing_price_id`, filtered to `billing_prices.currency = currency`. Reject with `404 window_not_found` if it doesn't exist — this endpoint only changes an existing window's price, it does not create windows (use `PUT .../windows` to author the schedule first).
+5. Reject with `400 no_change` if `unit_amount` equals the window's current (joined) value — nothing to sync.
 6. Resolve the vendor product: the `billing_products` row where `onti_product_kind = 'course'` and `onti_product_id = course_id`. Reject with `404 billing_product_not_found` if none exists — a course must be linked to a vendor product (via the billing catalog) before its price can be synced. `course_price_windows` alone never implies a Stripe product exists.
 7. Look up the current `billing_prices` row for `(product_id, currency, status = 'active')`, if any.
    - **If one exists** (the common case — replacing a price): call the vendor to deactivate it (Stripe: `prices.update(vendor_price_id, { active: false })`), then set that row's `status = 'archived'`.
    - **If none exists** (first price ever set for this product + currency): skip straight to creation.
 8. Call the vendor to create the new price: Stripe `prices.create({ product: vendor_product_id, currency: currency.toLowerCase(), unit_amount })`. Course prices are always `type = 'one_time'` (courses have no subscription concept — see `product_kind` in schema §2), so no `recurring` block is sent.
 9. Insert the new `billing_prices` row: `vendor = 'stripe'`, `vendor_price_id` = the id Stripe returned, `product_id`, `type = 'one_time'`, `unit_amount`, `currency`, `interval` / `interval_count` = `null`, `status = 'active'`.
-10. Update the targeted `course_price_windows` row's `unit_amount` to the new value.
+10. Update the targeted `course_price_windows` row's `billing_price_id` to point at the newly inserted `billing_prices` row.
 11. Return the updated window and the new `billing_prices` row together.
 
 ## Response body
@@ -88,6 +88,7 @@ Only `unit_amount` can change through this endpoint. To move a window's dates, u
       "position": 3,
       "starts_at": "2026-07-30T23:59:59Z",
       "ends_at": null,
+      "billing_price_id": "c8f1...9a",
       "currency": "USD",
       "unit_amount": 149900,
       "created_at": "2026-06-01T09:00:00Z",
@@ -114,7 +115,7 @@ Only `unit_amount` can change through this endpoint. To move a window's dates, u
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `window` | `object` | The updated `course_price_windows` row. Same shape as `GET /admin/v1/pricing/:id/windows`. |
+| `window` | `object` | The updated `course_price_windows` row, now pointing at `billing_price_id`. Same shape as `GET /admin/v1/pricing/:id/windows` — `currency`/`unit_amount` are joined in from `billing_price`, not stored on the row. |
 | `billing_price` | `object` | The newly created, now-active `billing_prices` row — this is what checkout (`/v1/billing/checkout`) will charge going forward for this product + currency. |
 | `archived_billing_price_id` | `uuid \| null` | The `billing_prices.id` that was just archived, or `null` if this was the first price ever set for this product + currency (nothing to archive). |
 

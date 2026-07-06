@@ -310,6 +310,7 @@
                     "group": "billing",
                     "pages": [
                       "api/internal/v1/billing/checkout",
+                      "api/internal/v1/billing/pricing.get",
                       "api/internal/v1/billing/webhook"
                     ]
                   },
@@ -341,7 +342,6 @@
                   {
                     "group": "pricing",
                     "pages": [
-                      "api/admin/v1/pricing/course.id.get",
                       "api/admin/v1/pricing/windows.list.get",
                       "api/admin/v1/pricing/windows.update.put",
                       "api/admin/v1/pricing/window.price.patch"
