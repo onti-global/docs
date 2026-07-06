@@ -9,7 +9,7 @@ tag: "api"
 
 # GET Course Pricing Windows (Admin)
 
-Returns the raw, unresolved pricing schedule for a course — every `course_price_windows` row (see [`schema.sql`](/schema) §13), across every currency, with no locale resolution and no discount computation. This is the read side of the back-office pricing editor: it feeds the schedule table the admin edits, whereas `GET /admin/v1/pricing/:id` (see `api/admin/v1/pricing/course.id.get`) is the public, locale-resolved "what does this course cost right now" lookup used by storefronts.
+Returns the raw, unresolved pricing schedule for a course — every `course_price_windows` row (see [`schema.sql`](/schema) §13), across every currency, with no locale resolution and no discount computation. This is the read side of the back-office pricing editor: it feeds the schedule table the admin edits, whereas `GET /v1/billing/pricing/:id` (see `api/internal/v1/billing/pricing.get`) is the public, locale-resolved "what does this course cost right now" lookup used by storefronts.
 
 ## Authentication
 
@@ -45,6 +45,7 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
         "position": 1,
         "starts_at": "2026-07-01T00:00:00Z",
         "ends_at": "2026-07-15T23:59:59Z",
+        "billing_price_id": "c1a2...9e",
         "currency": "USD",
         "unit_amount": 79900,
         "created_at": "2026-06-01T09:00:00Z",
@@ -55,6 +56,7 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
         "position": 2,
         "starts_at": "2026-07-15T23:59:59Z",
         "ends_at": "2026-07-30T23:59:59Z",
+        "billing_price_id": "f3b7...4d",
         "currency": "USD",
         "unit_amount": 99900,
         "created_at": "2026-06-01T09:00:00Z",
@@ -65,6 +67,7 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
         "position": 3,
         "starts_at": "2026-07-30T23:59:59Z",
         "ends_at": null,
+        "billing_price_id": "a9c3...0f",
         "currency": "USD",
         "unit_amount": 129900,
         "created_at": "2026-06-01T09:00:00Z",
@@ -75,6 +78,7 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
         "position": 1,
         "starts_at": "2026-07-01T00:00:00Z",
         "ends_at": "2026-07-15T23:59:59Z",
+        "billing_price_id": "d0e1...7b",
         "currency": "MXN",
         "unit_amount": 149900,
         "created_at": "2026-06-01T09:00:00Z",
@@ -89,12 +93,13 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
 | --- | --- | --- |
 | `course_id` | `uuid` | Echoes the path param. |
 | `windows` | `array` | Every `course_price_windows` row for this course, across all currencies. Sorted by `currency`, then `position` ascending. Empty array if no schedule has been authored yet — **not** a `404`. |
-| `windows[].id` | `uuid` | `course_price_windows.id`. Pass this back on `PUT` if the write endpoint ever needs to target a single row; the current write contract (see `api/admin/v1/pricing/windows.update.put`) replaces by `(position, currency)`, not by `id`. |
+| `windows[].id` | `uuid` | `course_price_windows.id`. Pass this back on `PUT` if the write endpoint ever needs to target a single row; the current write contract (see `api/admin/v1/pricing/windows.update.put`) replaces by `(position, billing_price_id)`, not by `id`. |
 | `windows[].position` | `integer` | 1-based ordinal within `(course_id, currency)`. Lower = earlier + cheaper. |
 | `windows[].starts_at` | `timestamptz` | Inclusive start of the window. |
 | `windows[].ends_at` | `timestamptz \| null` | Exclusive end of the window. `null` means open-ended. |
-| `windows[].currency` | `string` | ISO 4217 code (`"USD"` or `"MXN"` today). |
-| `windows[].unit_amount` | `integer` | Price in the smallest currency unit (cents). |
+| `windows[].billing_price_id` | `uuid` | `course_price_windows.billing_price_id` — the `billing_prices` row this window charges. Submit this back on `PUT` to keep or reassign a window's price. |
+| `windows[].currency` | `string` | ISO 4217 code (`"USD"` or `"MXN"` today), joined in from `billing_prices.currency`. Not a `course_price_windows` column. |
+| `windows[].unit_amount` | `integer` | Price in the smallest currency unit (cents), joined in from `billing_prices.unit_amount`. Not a `course_price_windows` column. |
 | `windows[].created_at` | `timestamptz` | Row creation timestamp. |
 | `windows[].updated_at` | `timestamptz` | Row last-modified timestamp. |
 
@@ -118,5 +123,5 @@ Returns the raw, unresolved pricing schedule for a course — every `course_pric
 
 ## Notes
 
-- An empty `windows` array is a valid, common response for a newly-created course — it means pricing simply hasn't been configured yet. The public lookup (`api/admin/v1/pricing/course.id.get`) turns that same state into `404 pricing_not_configured` for the currency it resolved to; this admin endpoint never 404s on "no schedule", only on "no course".
+- An empty `windows` array is a valid, common response for a newly-created course — it means pricing simply hasn't been configured yet. The public lookup (`api/internal/v1/billing/pricing.get`) turns that same state into `404 pricing_not_configured` for the currency it resolved to; this admin endpoint never 404s on "no schedule", only on "no course".
 - `analyst` can read this endpoint (matches the read/write split used everywhere else in the admin API — see `api/admin/v1/kpis-get-md` and `api/admin/v1/courses/enrollment.list.get`); only `admin` can write via `PUT` (see `api/admin/v1/pricing/windows.update.put`).
