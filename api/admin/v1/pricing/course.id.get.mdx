@@ -1,0 +1,155 @@
+---
+title: "pricing-get"
+api: "admin"
+endpoint: "/internal/v1/admin/pricing/:id"
+method: "get"
+client: "admin"
+tag: "api"
+---
+
+# GET Course Pricing
+
+Returns the locale-resolved price for a single course, plus its full pricing schedule. Backed by `course_price_windows` — see [`schema.sql`](/schema) §13 — a date-ranged schedule an admin authors per course: each window is a `(position, currency)` pair with its own `[starts_at, ends_at)` range and price, ordered so lower positions start earlier and cost less. The endpoint resolves "today's price" by finding whichever window contains the request time, and reports the early-bird discount relative to the schedule's highest-priced window.
+
+This is a read-only pricing lookup, not a checkout call — it exists so storefronts, landing pages, and partner integrations can render "this course costs X today, Y after <date>" without a Supabase session. Checkout itself still goes through `/v1/billing/checkout` (see `api/internal/v1/billing/checkout`) using `billing_prices`, which is reconciled against this schedule by whoever authors both.
+
+## Authentication
+
+- Requires a **static API key** sent in the `x-api-key` header. No `Authorization` header, no Bearer scheme, no scopes — same shared-secret pattern as `/v1/billing/checkout`.
+- Callable from unauthenticated contexts (landing pages, pricing pages, partner backends). Does **not** require a Supabase Auth JWT.
+- The handler reads with a service-role client and bypasses RLS entirely — the `course_price_windows: read all` policy (schema §13) governs direct client reads under a user's JWT, not this endpoint.
+- Missing or invalid `x-api-key` returns `401 unauthenticated`.
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `x-api-key` | `<static admin api key>` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id (`courses.id`). |
+
+## Query parameters
+
+| Param | Type | Required | Description |
+| --- | --- | --- | --- |
+| `country` | `string` | No | ISO 3166-1 alpha-2 country code (e.g. `MX`, `US`). Drives currency resolution — see Behavior. Defaults to `US` (i.e. USD) when omitted. |
+| `as_of` | `timestamptz` | No | ISO-8601 timestamp to resolve the active window at. Defaults to `now()`. Lets an admin preview a future or past price without waiting for the calendar to turn. Must not resolve to before the schedule's earliest `starts_at` by more than is representable — see `no_schedule_for_time` below. |
+
+## Behavior
+
+1. Validate `x-api-key`. Reject with `401 unauthenticated` if missing or invalid.
+2. Validate `id` is a UUID and resolves to an existing row in `courses`. Reject with `404 course_not_found` otherwise (draft/archived courses are still resolvable here — pricing lookups are not gated by `course_status`, since admins may price a course before publishing it).
+3. Resolve `currency`: uppercase `country`; `"MX"` -> `"MXN"`, anything else (including an omitted `country`) -> `"USD"`.
+4. Resolve `as_of`: parse the query param, or `now()` if omitted. Reject with `400 invalid_as_of` if present but not a valid ISO-8601 timestamp.
+5. Load every `course_price_windows` row for `(course_id, currency)`, ordered by `position` ascending.
+   - If there are zero rows for that currency, reject with `404 pricing_not_configured` — the course exists but an admin hasn't authored a schedule in this currency yet.
+6. Determine the **active** window: the row with the greatest `position` whose `starts_at <= as_of` and (`ends_at is null` or `ends_at > as_of`). If `as_of` is earlier than every window's `starts_at` (the schedule hasn't started yet), fall back to the lowest-`position` row so the endpoint always returns a price rather than a hole.
+7. Determine the **reference** price: the row with the greatest `position` in the loaded set (the schedule's highest, typically open-ended, price). This is the denominator for every `discount_percent` below — not necessarily the active window's own price.
+8. For every loaded row, compute `discount_percent = round((reference.unit_amount - row.unit_amount) / reference.unit_amount * 100, 2)`, or `0` if `reference.unit_amount` is `0`. The active window's `discount_percent` doubles as `active.discount_percent` in the response; it is `0` for the reference row itself.
+9. `active.is_early_bird` is `true` only when the active window's `position` equals the **lowest** position in the loaded schedule.
+10. Return the resolved `currency`, the `active` window, and the full ordered `schedule`.
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "course_id": "1aa2...d4",
+    "country": "MX",
+    "currency": "MXN",
+    "as_of": "2026-07-06T12:00:00Z",
+    "active": {
+      "position": 1,
+      "starts_at": "2026-07-01T00:00:00Z",
+      "ends_at": "2026-07-15T23:59:59Z",
+      "unit_amount": 149900,
+      "currency": "MXN",
+      "discount_percent": 25.0,
+      "is_early_bird": true
+    },
+    "schedule": [
+      {
+        "position": 1,
+        "starts_at": "2026-07-01T00:00:00Z",
+        "ends_at": "2026-07-15T23:59:59Z",
+        "unit_amount": 149900,
+        "currency": "MXN",
+        "discount_percent": 25.0,
+        "is_active": true
+      },
+      {
+        "position": 2,
+        "starts_at": "2026-07-15T23:59:59Z",
+        "ends_at": "2026-07-30T23:59:59Z",
+        "unit_amount": 179900,
+        "currency": "MXN",
+        "discount_percent": 10.0,
+        "is_active": false
+      },
+      {
+        "position": 3,
+        "starts_at": "2026-07-30T23:59:59Z",
+        "ends_at": null,
+        "unit_amount": 199900,
+        "currency": "MXN",
+        "discount_percent": 0,
+        "is_active": false
+      }
+    ]
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `course_id` | `uuid` | Echoes the path param. |
+| `country` | `string` | Echoes the resolved (uppercased) `country`, or `"US"` if the param was omitted. |
+| `currency` | `string` | ISO 4217 code every `unit_amount` in this response is denominated in — `"MXN"` if `country = "MX"`, else `"USD"`. |
+| `as_of` | `timestamptz` | The timestamp the schedule was resolved against. Echoes the request's `as_of`, or `now()` if omitted. |
+| `active` | `object` | The window that applies right now (or at `as_of`). Same shape as a `schedule[]` entry, minus `is_active`, plus `is_early_bird`. |
+| `active.is_early_bird` | `boolean` | `true` only when `active.position` is the lowest position in `schedule`. |
+| `schedule` | `array` | Every window configured for this course in the resolved `currency`, ordered by `position` ascending. Length is however many positions the admin configured — not fixed at 3. |
+| `schedule[].position` | `integer` | 1-based ordinal. Lower = earlier date range = lower price. |
+| `schedule[].starts_at` | `timestamptz` | Inclusive start of the window. |
+| `schedule[].ends_at` | `timestamptz \| null` | Exclusive end of the window. `null` means open-ended (expected only on the highest position). |
+| `schedule[].unit_amount` | `integer` | Price in the smallest currency unit (cents). |
+| `schedule[].discount_percent` | `float` | Percent cheaper than the schedule's highest-priced window. `0` for that window itself. |
+| `schedule[].is_active` | `boolean` | `true` for exactly one entry — the window selected in step 6 of Behavior. |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid `x-api-key`. |
+| `400` | `invalid_as_of` | `as_of` is present but not a valid ISO-8601 timestamp. |
+| `404` | `course_not_found` | `id` does not resolve to any row in `courses`. |
+| `404` | `pricing_not_configured` | The course exists but has no `course_price_windows` rows in the resolved `currency`. |
+| `500` | `internal_error` | Unexpected database failure. |
+
+```json
+{
+  "status": 404,
+  "message": "Not found",
+  "error": "no pricing schedule configured for course '1aa2...d4' in currency 'MXN'",
+  "data": null
+}
+```
+
+## Notes
+
+- The endpoint never mutates `course_price_windows` — authoring the schedule (creating/updating windows) is out of scope for this doc and should follow the same admin-write pattern as `api/admin/v1/courses/course.update.put` once built.
+- `country` -> `currency` is a hard two-way switch today (`MX` -> `MXN`, everything else -> `USD`), matching the product spec ("MXN for Mexico, USD for the rest of the world"). If a third currency is ever needed, this resolution step — not the schema — is where it's extended.
+- `discount_percent` is always computed at request time from `unit_amount` values already in the schedule; it is never stored on `course_price_windows`. This keeps the schema free of a derived field that could drift if an admin edits a window's price.
+- A schedule is not required to have exactly 3 positions — the product spec's "lowest until Jul 15, mid until Jul 30, highest after" is a 3-position example, not a schema limit. `schedule` reflects however many positions exist for that course + currency.
+- If `country` is supplied but not a recognizable 2-letter code, it is treated the same as an unrecognized country: resolves to `USD`. This endpoint does not reject malformed `country` values with a `400`, since defaulting to the global price is a safer failure mode for a public-facing pricing lookup than erroring out.

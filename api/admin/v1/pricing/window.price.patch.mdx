@@ -1,0 +1,152 @@
+---
+title: "pricing-window-price-sync"
+api: "admin"
+endpoint: "/internal/v1/admin/pricing/:id/windows/:position/price"
+method: "patch"
+client: "admin"
+tag: "api"
+---
+
+# PATCH Update Window Price + Sync to Vendor (Admin)
+
+Changes what a single pricing window actually charges, and pushes that change to the payment vendor (Stripe today) so checkout reflects it too. This is narrower than `PUT /admin/v1/pricing/:id/windows` (see `api/admin/v1/pricing/windows.update.put`), which only ever rewrites `course_price_windows` — dates, position count, no vendor call. Retiming a window doesn't change what's charged, so it doesn't need one. Changing `unit_amount` does, so it goes through this endpoint instead.
+
+## Why this can't be a normal update
+
+Stripe (and every major vendor) treats a Price object's amount as **immutable** once created — there is no "edit amount" API call. The only supported way to change what a product charges is: create a brand-new Price at the new amount, point checkout at the new one, and archive (deactivate) the old one. This endpoint automates that dance so an admin only has to submit the new number once:
+
+1. Archive the course's current active `billing_prices` row for this currency **and** deactivate the matching Stripe Price object.
+2. Create a new Stripe Price object at the new `unit_amount`, and insert the corresponding new `billing_prices` row (`status = "active"`).
+3. Update `course_price_windows.unit_amount` for the targeted window so the schedule (and the public pricing lookup) matches what's now actually charged.
+
+All three steps happen in one request. If step 1/2 (the vendor calls) succeed but step 3 fails to persist, the response still reports the new `vendor_price_id` so the failure is recoverable — see Errors.
+
+## Authentication
+
+- Requires a valid Supabase Auth session with `admin_dashboard_role = "admin"` in the JWT. `analyst` cannot call this endpoint.
+- Uses the Supabase **admin** client (service-role key) for the database side; the Stripe calls use our backend's Stripe **secret key** (never exposed to the dashboard client).
+
+## Headers
+
+| Header | Value | Required |
+| --- | --- | --- |
+| `Authorization` | `Bearer <token>` | Yes |
+| `Content-Type` | `application/json` | Yes |
+| `Accept` | `application/json` | Yes |
+
+## Path parameters
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `id` | `uuid` | The course id (`courses.id`). |
+| `position` | `integer` | The window's 1-based position (see schema §13). Combined with `currency` in the body, identifies exactly one `course_price_windows` row. |
+
+## Request body
+
+```json
+{
+  "currency": "USD",
+  "unit_amount": 149900
+}
+```
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `currency` | `string` | Yes | ISO 4217 code. Only `"USD"` and `"MXN"` are accepted today. Selects which `(course_id, position, currency)` row to change. |
+| `unit_amount` | `integer` | Yes | New price in the smallest currency unit (cents). Must be `>= 0` and different from the window's current `unit_amount` — see `400 no_change` below. |
+
+Only `unit_amount` can change through this endpoint. To move a window's dates, use `PUT /admin/v1/pricing/:id/windows` instead.
+
+## Behavior
+
+1. Auth checks (JWT, `admin_dashboard_role = "admin"`).
+2. Confirm `id` resolves to an existing row in `courses`. Reject with `404 course_not_found` otherwise.
+3. Validate `position` is a positive integer and the body's `currency` / `unit_amount` are well-formed. Reject with `400 invalid_body` otherwise.
+4. Load the `course_price_windows` row for `(course_id, position, currency)`. Reject with `404 window_not_found` if it doesn't exist — this endpoint only changes an existing window's price, it does not create windows (use `PUT .../windows` to author the schedule first).
+5. Reject with `400 no_change` if `unit_amount` equals the window's current value — nothing to sync.
+6. Resolve the vendor product: the `billing_products` row where `onti_product_kind = 'course'` and `onti_product_id = course_id`. Reject with `404 billing_product_not_found` if none exists — a course must be linked to a vendor product (via the billing catalog) before its price can be synced. `course_price_windows` alone never implies a Stripe product exists.
+7. Look up the current `billing_prices` row for `(product_id, currency, status = 'active')`, if any.
+   - **If one exists** (the common case — replacing a price): call the vendor to deactivate it (Stripe: `prices.update(vendor_price_id, { active: false })`), then set that row's `status = 'archived'`.
+   - **If none exists** (first price ever set for this product + currency): skip straight to creation.
+8. Call the vendor to create the new price: Stripe `prices.create({ product: vendor_product_id, currency: currency.toLowerCase(), unit_amount })`. Course prices are always `type = 'one_time'` (courses have no subscription concept — see `product_kind` in schema §2), so no `recurring` block is sent.
+9. Insert the new `billing_prices` row: `vendor = 'stripe'`, `vendor_price_id` = the id Stripe returned, `product_id`, `type = 'one_time'`, `unit_amount`, `currency`, `interval` / `interval_count` = `null`, `status = 'active'`.
+10. Update the targeted `course_price_windows` row's `unit_amount` to the new value.
+11. Return the updated window and the new `billing_prices` row together.
+
+## Response body
+
+`200 OK`
+
+```json
+{
+  "status": 200,
+  "message": "",
+  "data": {
+    "window": {
+      "id": "9d0e...8a",
+      "course_id": "1aa2...d4",
+      "position": 3,
+      "starts_at": "2026-07-30T23:59:59Z",
+      "ends_at": null,
+      "currency": "USD",
+      "unit_amount": 149900,
+      "created_at": "2026-06-01T09:00:00Z",
+      "updated_at": "2026-07-06T15:10:00Z"
+    },
+    "billing_price": {
+      "id": "c8f1...9a",
+      "vendor": "stripe",
+      "vendor_price_id": "price_1QzAbC2eZvKYlo2C",
+      "product_id": "a9c3...0f",
+      "type": "one_time",
+      "unit_amount": 149900,
+      "currency": "USD",
+      "status": "active",
+      "created_at": "2026-07-06T15:10:00Z",
+      "updated_at": "2026-07-06T15:10:00Z"
+    },
+    "archived_billing_price_id": "b1a0...44"
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `window` | `object` | The updated `course_price_windows` row. Same shape as `GET /admin/v1/pricing/:id/windows`. |
+| `billing_price` | `object` | The newly created, now-active `billing_prices` row — this is what checkout (`/v1/billing/checkout`) will charge going forward for this product + currency. |
+| `archived_billing_price_id` | `uuid \| null` | The `billing_prices.id` that was just archived, or `null` if this was the first price ever set for this product + currency (nothing to archive). |
+
+## Errors
+
+| Status | Code | When |
+| --- | --- | --- |
+| `401` | `unauthenticated` | Missing or invalid JWT. |
+| `403` | `forbidden` | JWT does not carry `admin_dashboard_role = "admin"` (includes a valid `analyst` token). |
+| `400` | `invalid_body` | `position` is not a positive integer, `currency` is not `"USD"`/`"MXN"`, or `unit_amount` is missing / not an integer `>= 0`. |
+| `400` | `no_change` | `unit_amount` equals the window's current value. |
+| `404` | `course_not_found` | `id` does not resolve to any row in `courses`. |
+| `404` | `window_not_found` | No `course_price_windows` row exists for `(course_id, position, currency)`. |
+| `404` | `billing_product_not_found` | The course has no linked `billing_products` row (`onti_product_kind = 'course'`) — nothing to sync against. |
+| `502` | `vendor_error` | Stripe rejected the deactivate or create call. Body includes the vendor error code where safe to expose. The old price is left untouched if creation fails after a successful deactivate — see Notes. |
+| `500` | `internal_error` | The vendor calls succeeded but persisting `billing_prices` or `course_price_windows` failed. The response body includes `vendor_price_id` so the write can be retried or reconciled manually — see Notes. |
+
+```json
+{
+  "status": 500,
+  "message": "Vendor price created but not persisted",
+  "error": "insert into billing_prices failed after stripe price_1QzAbC2eZvKYlo2C was created",
+  "data": {
+    "vendor_price_id": "price_1QzAbC2eZvKYlo2C"
+  }
+}
+```
+
+## Notes
+
+- **Ordering of vendor calls matters.** Deactivating the old Stripe price happens *before* creating the new one, not after — so there is never a moment where two active Stripe prices both look correct for the same product + currency. The narrow risk window is the opposite one: if `prices.create` (step 8) fails after the old price was already deactivated (step 7), the product briefly has **no** active vendor price for that currency. The handler retries the create call once before surfacing `502 vendor_error`; if it still fails, re-running this endpoint with the same `unit_amount` is safe and resumes from step 7's "none exists" branch.
+- **`500` after a successful vendor call is the one truly awkward failure mode** — Stripe now has a price we haven't recorded. It's surfaced with `vendor_price_id` in the error body specifically so an operator (or a retry) can finish persisting it rather than creating yet another orphaned Stripe price. There is no automatic cleanup / un-create of Stripe prices — Stripe doesn't support deleting Price objects, only deactivating them, so an orphaned one is inert, not dangerous, if it's ever abandoned.
+- This endpoint intentionally does **not** touch `billing_checkout_sessions` or `product_access` history — those snapshot the price that was active *at the time of purchase* (see schema §6/§8) and must never be rewritten retroactively when a price changes going forward.
+- `billing_products` is not created by this endpoint. Linking a course to a vendor product for the first time is a separate, one-time setup step (out of scope here) — this endpoint only ever creates new **prices** under an existing product.
+- Course prices are always `type = 'one_time'`; there's no code path here for `recurring` because courses aren't sold on a subscription (only `onti_packages` are — see `product_kind`, schema §2). If that ever changes, this endpoint would need an `interval` / `interval_count` in the request body.

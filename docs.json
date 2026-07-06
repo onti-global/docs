@@ -339,6 +339,15 @@
                     ]
                   },
                   {
+                    "group": "pricing",
+                    "pages": [
+                      "api/admin/v1/pricing/course.id.get",
+                      "api/admin/v1/pricing/windows.list.get",
+                      "api/admin/v1/pricing/windows.update.put",
+                      "api/admin/v1/pricing/window.price.patch"
+                    ]
+                  },
+                  {
                     "group": "courses — course builder",
                     "pages": [
                       "api/admin/v1/courses/course.create.post",

@@ -38,6 +38,8 @@ title: "schema.sql"
 --   11. WhatsApp messaging
 --        - whatsapp_conversations
 --        - whatsapp_messages
+--   13. Course pricing schedules
+--        - course_price_windows
 --   3. Indexes
 --   4. Row Level Security policies
 --   5. Trigger functions and triggers (updated_at automation)
@@ -2009,5 +2011,144 @@ create trigger whatsapp_conversations_set_timestamps
 
 create trigger whatsapp_messages_set_timestamps
   before insert or update on whatsapp_messages
+  for each row execute function set_timestamps();
+
+
+-- =============================================================================
+-- 12. Billing price scoping fix — multiple prices per product, per currency
+-- -----------------------------------------------------------------------------
+-- billing_prices (section 6) originally enforced vendor_price_id uniqueness
+-- globally per vendor via billing_prices_vendor_unique (vendor,
+-- vendor_price_id). That accidentally reads as "one price per product": it
+-- says nothing about product_id or currency, so it under-constrains the real
+-- rule.
+--
+-- The actual rule: a product can have several distinct prices (e.g. multiple
+-- plans), and each of those prices is republished once per currency (e.g.
+-- Product A has price "1" and price "2"; price "1" has its own vendor price
+-- object in MXN and another in USD). vendor_price_id only needs to be unique
+-- within a given product and currency, not across the whole vendor account.
+--
+-- Fix:
+--   - Drop billing_prices_vendor_unique.
+--   - Add billing_prices_product_currency_unique (product_id, currency,
+--     vendor_price_id), so a product can freely carry many prices across
+--     many currencies, while still rejecting an accidental duplicate
+--     vendor_price_id for the same product+currency pair.
+-- =============================================================================
+
+alter table billing_prices
+  drop constraint billing_prices_vendor_unique;
+
+alter table billing_prices
+  add constraint billing_prices_product_currency_unique
+  unique (product_id, currency, vendor_price_id);
+
+
+-- =============================================================================
+-- 13. Course pricing schedules
+-- -----------------------------------------------------------------------------
+-- Seasonal, locale-aware pricing for a course, read by GET /admin/v1/pricing/:id
+-- (see api/admin/v1/pricing/course.id.get). A course's price changes over the
+-- year on an admin-authored schedule of date-ranged windows — cheapest early,
+-- most expensive once the schedule has run out — and is quoted in whichever
+-- currency matches the buyer's locale (MXN for Mexico, USD everywhere else).
+--
+-- This is deliberately separate from billing_prices (section 6): billing_prices
+-- is vendor-facing (Stripe SKUs actually charged at checkout), while
+-- course_price_windows is the vendor-agnostic *schedule* an admin authors that
+-- the pricing service reads to tell the storefront what to show and which
+-- billing_price to check out with next. There is no foreign key between them
+-- — reconciliation is a runtime behavior, not a schema constraint. The two
+-- write paths differ on purpose:
+--   - api/admin/v1/pricing/windows.update.put rewrites the schedule shape
+--     (dates, position count) and touches ONLY course_price_windows. No
+--     vendor call — retiming a window doesn't change what's charged.
+--   - api/admin/v1/pricing/window.price.patch changes what a window
+--     actually charges. Because a vendor price's amount is immutable once
+--     created (true for Stripe; documented as a vendor-agnostic assumption
+--     here), this path archives the old billing_prices row, creates a new
+--     vendor price, inserts the new billing_prices row, AND updates the
+--     course_price_windows.unit_amount to match — it's the one place that
+--     writes both tables in the same request.
+--
+-- Shape: one row per (course, position, currency). `position` is a 1-based
+-- ordinal, ascending in BOTH start date and price — position 1 is the
+-- earliest/cheapest window, and the highest position for a given
+-- (course_id, currency) is the last one, conventionally open-ended
+-- (ends_at is null) and most expensive. The count of positions per course is
+-- NOT fixed by the schema — today's product spec calls for 3 (lowest ->
+-- mid -> highest), but a course is free to carry 2, 4, or more windows
+-- without a migration. The API layer resolves "today's price" by finding the
+-- position whose [starts_at, ends_at) window contains the request time, and
+-- derives the early-bird discount by comparing against the highest position.
+-- =============================================================================
+
+
+-- ----- course_price_windows ---------------------------------------------------
+-- A single priced date range for a course, in a single currency. Application
+-- (not SQL) is responsible for keeping a course's positions contiguous
+-- (1, 2, 3, ...), chronologically ordered, and non-overlapping per
+-- (course_id, currency) — mirrors the position-must-stay-contiguous
+-- convention already used by course_modules.position.
+--
+-- position       - 1-based ordinal within (course_id, currency). Lower
+--                   position = earlier date range = lower price. No fixed
+--                   upper bound; a course can define as many windows as it
+--                   needs.
+-- ends_at         - exclusive upper bound of the window. Nullable; by
+--                   convention only the highest position for a given
+--                   (course_id, currency) leaves this null (open-ended), so
+--                   the price holds indefinitely once the schedule runs out
+--                   rather than needing to be re-authored every year.
+-- currency        - ISO 4217 code. Only 'MXN' and 'USD' are populated today,
+--                   matching the pricing service's locale rule (Mexico ->
+--                   MXN, everywhere else -> USD).
+-- unit_amount     - price in the smallest currency unit (cents), matching the
+--                   billing_prices.unit_amount convention (section 6).
+
+create table course_price_windows (
+  id          uuid primary key default gen_random_uuid(),
+  course_id   uuid not null references courses(id) on delete cascade,
+  position    integer not null,
+  starts_at   timestamptz not null,
+  ends_at     timestamptz,
+  currency    text not null,
+  unit_amount integer not null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+
+  -- One price per position per currency, per course.
+  constraint course_price_windows_unique unique (course_id, position, currency),
+
+  constraint course_price_windows_position_positive check (position > 0),
+  constraint course_price_windows_ends_after_starts check (
+    ends_at is null or ends_at > starts_at
+  ),
+  constraint course_price_windows_amount_non_negative check (unit_amount >= 0)
+);
+
+alter table course_price_windows enable row level security;
+
+-- Loading a course's full schedule (all positions, all currencies).
+create index course_price_windows_course_id_idx on course_price_windows (course_id);
+
+-- Resolving "what's the active price right now" for a given course + currency
+-- without scanning every currency's rows.
+create index course_price_windows_course_currency_idx
+  on course_price_windows (course_id, currency, starts_at);
+
+-- Pricing is catalog data — needed to render prices before a purchase exists —
+-- so it's readable the same way onti_packages (section 2) is: any
+-- authenticated user, no ownership check. The admin/v1/pricing service itself
+-- reads via a static API key / service-role client and bypasses RLS entirely,
+-- same as billing/checkout (section 6).
+create policy "course_price_windows: read all"
+  on course_price_windows for select
+  to authenticated
+  using (true);
+
+create trigger course_price_windows_set_timestamps
+  before insert or update on course_price_windows
   for each row execute function set_timestamps();
 ```
