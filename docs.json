@@ -16,7 +16,13 @@
     "timestamp": true
   },
   "contextual": {
-    "options": ["copy", "view", "assistant", "mcp", "add-mcp"]
+    "options": [
+      "copy",
+      "view",
+      "assistant",
+      "mcp",
+      "add-mcp"
+    ]
   },
   "navigation": {
     "tabs": [
@@ -25,7 +31,9 @@
         "groups": [
           {
             "group": "Welcome",
-            "pages": ["index"]
+            "pages": [
+              "index"
+            ]
           },
           {
             "group": "Your first days",
@@ -50,7 +58,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["hr-people/index"]
+            "pages": [
+              "hr-people/index"
+            ]
           },
           {
             "group": "Benefits & time off",
@@ -75,7 +85,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["it-security/index"]
+            "pages": [
+              "it-security/index"
+            ]
           },
           {
             "group": "Access & devices",
@@ -99,7 +111,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["policies/index"]
+            "pages": [
+              "policies/index"
+            ]
           },
           {
             "group": "Conduct & spend",
@@ -124,7 +138,9 @@
         "groups": [
           {
             "group": "Overview",
-            "pages": ["engineering/index"]
+            "pages": [
+              "engineering/index"
+            ]
           },
           {
             "group": "Setup & deployment",
@@ -157,7 +173,9 @@
         "groups": [
           {
             "group": "Visión General",
-            "pages": ["app/index"]
+            "pages": [
+              "app/index"
+            ]
           },
           {
             "group": "PRD-01 · Catálogo e Inscripción",
@@ -193,7 +211,9 @@
         "groups": [
           {
             "group": "Programa",
-            "pages": ["suprahumano/index"]
+            "pages": [
+              "suprahumano/index"
+            ]
           },
           {
             "group": "Los 16 Códigos del SER",
@@ -215,6 +235,56 @@
               "suprahumano/codigo-14-frecuencia-de-poder",
               "suprahumano/codigo-15-esenciales-del-amor",
               "suprahumano/codigo-16-camino-suprahumano"
+            ]
+          },
+          {
+            "group": "Libro completo",
+            "pages": [
+              "suprahumano/libro/index",
+              "suprahumano/libro/prologo",
+              "suprahumano/libro/introduccion",
+              {
+                "group": "Parte I · El despertar",
+                "pages": [
+                  "suprahumano/libro/parte-1",
+                  "suprahumano/libro/capitulo-01-el-juego",
+                  "suprahumano/libro/capitulo-02-tu-metro-cuadrado",
+                  "suprahumano/libro/capitulo-03-la-mente-programada",
+                  "suprahumano/libro/capitulo-04-el-espejo"
+                ]
+              },
+              {
+                "group": "Parte II · La alquimia interior",
+                "pages": [
+                  "suprahumano/libro/parte-2",
+                  "suprahumano/libro/capitulo-05-la-alquimia",
+                  "suprahumano/libro/capitulo-06-el-observador",
+                  "suprahumano/libro/capitulo-07-la-conciencia",
+                  "suprahumano/libro/capitulo-08-el-espacio-de-las-variantes"
+                ]
+              },
+              {
+                "group": "Parte III · La creación consciente",
+                "pages": [
+                  "suprahumano/libro/parte-3",
+                  "suprahumano/libro/capitulo-09-la-intencion",
+                  "suprahumano/libro/capitulo-10-el-poder-del-ahora",
+                  "suprahumano/libro/capitulo-11-firme-determinacion-de-actuar",
+                  "suprahumano/libro/capitulo-12-el-ego"
+                ]
+              },
+              {
+                "group": "Parte IV · El suprahumano en el mundo",
+                "pages": [
+                  "suprahumano/libro/parte-4",
+                  "suprahumano/libro/capitulo-13-los-pendulos",
+                  "suprahumano/libro/capitulo-14-frecuencias-de-poder",
+                  "suprahumano/libro/capitulo-15-tu-esencia-el-amor",
+                  "suprahumano/libro/capitulo-16-el-camino-suprahumano"
+                ]
+              },
+              "suprahumano/libro/epilogo-munay",
+              "suprahumano/libro/bibliografia"
             ]
           }
         ]
